@@ -1,0 +1,40 @@
+/* Design tokens. The 3D scene mirrors these in three/sceneTheme.ts. */
+:root {
+  --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --r: 3px;
+  --bar-h: 44px;
+  --side-w: 340px;
+
+  --bg: #15171a;
+  --surface: #1b1e22;
+  --surface-2: #22262b;
+  --surface-3: #2a2f35;
+  --line: #2c3137;
+  --line-strong: #3b424a;
+  --text: #e3e6ea;
+  --text-2: #a3abb6;
+  --text-3: #707884;
+  --accent: #ff6a1f;
+  --accent-ink: #1a0d05;
+  --danger: #e5484d;
+  --warn: #d9a441;
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg: #f4f5f6;
+  --surface: #ffffff;
+  --surface-2: #f1f2f4;
+  --surface-3: #e6e8eb;
+  --line: #dfe2e6;
+  --line-strong: #c4c9d0;
+  --text: #1a1d21;
+  --text-2: #4f5661;
+  --text-3: #7c8591;
+  --accent: #e2530a;
+  --accent-ink: #ffffff;
+  --danger: #cd2b31;
+  --warn: #9a6a00;
+  color-scheme: light;
+}
