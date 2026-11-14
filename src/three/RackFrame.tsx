@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Edges, Html, Instance, Instances, Text } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import monoFont from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff?url'
@@ -18,6 +18,8 @@ const POST_D = 22
 export function RackFrame({ rack, theme, units }: Props) {
   const g = rackGeometry(rack)
   const [hoverU, setHoverU] = useState<number | null>(null)
+  const fade = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => void (fade.current && clearTimeout(fade.current)), [])
   const innerH = rack.heightU * U_MM
   const postX = g.openingW / 2 + g.railW / 2
   const postZ = rack.depthMm / 2 - POST_D / 2
@@ -101,7 +103,13 @@ export function RackFrame({ rack, theme, units }: Props) {
       <mesh
         position={[-g.outerW / 2 - 20, midY, rack.depthMm / 2]}
         onPointerMove={onRuler}
-        onPointerOut={() => setHoverU(null)}
+        onPointerDown={onRuler}
+        onPointerOut={(e: ThreeEvent<PointerEvent>) => {
+          // A finger leaves the moment it lifts, so the readout stays a little while instead.
+          if (e.pointerType !== 'touch') return setHoverU(null)
+          if (fade.current) clearTimeout(fade.current)
+          fade.current = setTimeout(() => setHoverU(null), 2500)
+        }}
       >
         <planeGeometry args={[46, innerH]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />

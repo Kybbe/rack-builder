@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import * as ToggleGroup from '@radix-ui/react-toggle-group'
 import * as Select from '@radix-ui/react-select'
@@ -16,9 +16,27 @@ export function Tip({
   children: ReactNode
   side?: 'top' | 'right' | 'bottom' | 'left'
 }) {
+  // There is no hover on a phone, so a tap opens the tip and the next tap anywhere closes it.
+  const [open, setOpen] = useState(false)
+  const wasOpen = useRef(false)
+  const byTouch = useRef(false)
   return (
-    <Tooltip.Root>
-      <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
+    <Tooltip.Root open={open} onOpenChange={setOpen}>
+      <Tooltip.Trigger
+        asChild
+        onPointerDown={(e) => {
+          byTouch.current = e.pointerType === 'touch'
+          wasOpen.current = open
+        }}
+        onClick={(e) => {
+          if (!byTouch.current) return
+          // Radix closes a tooltip when its trigger is clicked; for a finger the click is the only way in.
+          e.preventDefault()
+          setOpen(!wasOpen.current)
+        }}
+      >
+        {children}
+      </Tooltip.Trigger>
       <Tooltip.Portal>
         <Tooltip.Content className="tip" side={side} sideOffset={6} collisionPadding={8}>
           {content}

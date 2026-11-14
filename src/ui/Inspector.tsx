@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react'
-import { Drawer } from 'vaul'
 import { toast } from 'sonner'
 import { useStore } from '../state/store'
 import { getItem } from '../catalog'
@@ -473,45 +471,20 @@ function useSelectedCable(): CableRow | undefined {
   return cableReport(rack, placements, cables, { routing }).rows.find((r) => r.cable.id === id)
 }
 
-function useNarrow() {
-  const [narrow, setNarrow] = useState(
-    () => typeof matchMedia !== 'undefined' && matchMedia('(max-width: 900px)').matches,
-  )
-  useEffect(() => {
-    const m = matchMedia('(max-width: 900px)')
-    const on = () => setNarrow(m.matches)
-    m.addEventListener('change', on)
-    return () => m.removeEventListener('change', on)
-  }, [])
-  return narrow
+/** What the inspector shows for the current selection; the phone sheet renders the same thing. */
+export function InspectorBody() {
+  const p = useStore((s) => s.placements.find((x) => x.id === s.selectedId))
+  const cable = useSelectedCable()
+  return p ? <Body p={p} /> : cable ? <CableBody row={cable} /> : null
 }
 
 export function Inspector() {
-  const p = useStore((s) => s.placements.find((x) => x.id === s.selectedId))
-  const dragging = useStore((s) => !!s.drag)
-  const cable = useSelectedCable()
-  const narrow = useNarrow()
-  const close = () => {
-    useStore.getState().select(null)
-    useStore.getState().selectCable(null)
-  }
-  if (narrow) {
-    return (
-      <Drawer.Root open={(!!p || !!cable) && !dragging} onOpenChange={(o) => !o && close()} modal={false}>
-        <Drawer.Portal>
-          <Drawer.Content className="drawer" aria-describedby={undefined}>
-            <Drawer.Handle className="drawer__handle" />
-            <Drawer.Title className="sr-only">Selected {cable ? 'cable' : 'device'}</Drawer.Title>
-            {p ? <Body p={p} /> : cable ? <CableBody row={cable} /> : null}
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
-    )
-  }
-  if (!p && !cable) return null
+  const has = useStore((s) => !!s.selectedCableId || s.placements.some((x) => x.id === s.selectedId))
+  const isCable = useStore((s) => !!s.selectedCableId)
+  if (!has) return null
   return (
-    <aside className="inspector" aria-label={cable && !p ? 'Selected cable' : 'Selected device'}>
-      {p ? <Body p={p} /> : <CableBody row={cable!} />}
+    <aside className="inspector" aria-label={isCable ? 'Selected cable' : 'Selected device'}>
+      <InspectorBody />
     </aside>
   )
 }

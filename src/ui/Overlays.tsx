@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import * as Toolbar from '@radix-ui/react-toolbar'
+import * as Popover from '@radix-ui/react-popover'
 import { useStore, type ViewPreset } from '../state/store'
 import { budget } from '../domain/budget'
 import { Len, Tip, ULabel } from './primitives'
@@ -64,7 +65,7 @@ export function ViewToolbar() {
   )
 }
 
-export function BudgetBar() {
+export function BudgetBar({ compact = false }: { compact?: boolean }) {
   const rack = useStore((s) => s.rack)
   const placements = useStore((s) => s.placements)
   const b = useMemo(() => budget(rack, placements), [rack, placements])
@@ -72,6 +73,74 @@ export function BudgetBar() {
     (i) => i.code === 'too-deep' || i.code === 'needs-adapter' || i.code === 'child-too-deep',
   )
   const pct = Math.round((b.usedU / rack.heightU) * 100)
+  if (compact) {
+    // No hover on a phone and little room: one line, and the rest behind a tap.
+    return (
+      <Popover.Root>
+        <Popover.Trigger asChild>
+          <button
+            type="button"
+            className="budget budget--compact mono"
+            aria-label="Rack totals, tap for details"
+          >
+            <span className="budget__cell budget__cell--bar">
+              <span>
+                <b>{b.usedU}</b> of {rack.heightU}U used
+              </span>
+              <span className="meter" role="img" aria-label={`${pct}% of the rack is used`}>
+                <span style={{ width: `${pct}%` }} />
+              </span>
+            </span>
+            {warnings.length > 0 && (
+              <span className="budget__cell budget__cell--warn">
+                {warnings.length} warning{warnings.length === 1 ? '' : 's'}
+              </span>
+            )}
+          </button>
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content
+            className="popover totals"
+            side="top"
+            align="start"
+            sideOffset={6}
+            collisionPadding={8}
+            // Focus would land on the first length and pop its unit tooltip open over the numbers.
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <dl className="totals__list mono">
+              <div>
+                <dt>Free</dt>
+                <dd>{b.freeU}U</dd>
+              </div>
+              <div>
+                <dt>Weight</dt>
+                <dd>{b.weightKg.toFixed(1)} kg</dd>
+              </div>
+              <div>
+                <dt>Max power</dt>
+                <dd>{Math.round(b.powerW)} W</dd>
+              </div>
+              <div>
+                <dt>Deepest</dt>
+                <dd>{b.deepestMm ? <Len mm={b.deepestMm} digits={0} /> : '—'}</dd>
+              </div>
+            </dl>
+            <p className="note">
+              Max power is each device's maximum draw added up. Real use is usually well below.
+            </p>
+            {warnings.length > 0 && (
+              <ul className="tip__list note--warn">
+                {warnings.map((w, i) => (
+                  <li key={i}>{w.message}</li>
+                ))}
+              </ul>
+            )}
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
+    )
+  }
   return (
     <footer className="budget mono" aria-label="Rack totals">
       <div className="budget__cell budget__cell--bar">

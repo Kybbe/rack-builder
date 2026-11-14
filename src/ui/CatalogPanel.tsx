@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import * as Accordion from '@radix-ui/react-accordion'
 import { CATALOG, CATEGORIES } from '../catalog'
 import type { CatalogItem } from '../domain/types'
+import { useHoldDrag } from './useHoldDrag'
+import { narrowNow } from './useNarrow'
 import { useStore } from '../state/store'
 import { hasModel } from '../three/Device'
 import { Len, Tip, ULabel } from './primitives'
@@ -42,12 +44,19 @@ function Card({ item, mode }: { item: CatalogItem; mode: 'build' | 'plan' }) {
       st.want(item.id, 1)
       return
     }
-    report(st.addAuto(item.id), { itemId: item.id })
+    const added = report(st.addAuto(item.id), { itemId: item.id })
+    // On a phone the selection takes over the sheet; adding several things in a row must keep the list.
+    if (added && narrowNow()) useStore.getState().select(null)
   }
+  const hold = useHoldDrag<HTMLLIElement>(
+    () => useStore.getState().setDrag({ itemId: item.id, held: true }),
+    mode === 'build' && !blocked,
+  )
   return (
     <li
       className="card"
       data-blocked={blocked ? '' : undefined}
+      {...hold}
       draggable={mode === 'build' && !blocked}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', item.id)

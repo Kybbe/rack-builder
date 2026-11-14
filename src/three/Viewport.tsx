@@ -22,6 +22,8 @@ import { RackFrame } from './RackFrame'
 import { Device } from './Device'
 import { Cables } from './Cables'
 import { MM, bridge, pointOnRack } from './bridge'
+import { lastPressWasTouch, pressAction } from './touch'
+import { isCoarse, useNarrow } from '../ui/useNarrow'
 import { SCENE, type SceneTheme } from './sceneTheme'
 
 type Controls = { target: THREE.Vector3; update: () => void; object: THREE.Camera }
@@ -55,7 +57,12 @@ function Rig({ rack }: { rack: Rack }) {
     if (!controls) return
     const target = new THREE.Vector3(0, (g.totalH * MM) / 2, 0)
     const dir = new THREE.Vector3(...DIRS[view.preset]).normalize()
-    camera.position.copy(target).addScaledVector(dir, extent * 2.4 + 0.25)
+    // The field of view is measured top to bottom, so on a tall narrow screen the sides are cut off
+    // unless the camera stands further back. The window is used rather than the canvas, which changes
+    // height as the phone sheet opens and closes.
+    const aspect = Math.min(size.width / size.height, window.innerWidth / window.innerHeight)
+    const back = Math.max(1, 0.6 / aspect)
+    camera.position.copy(target).addScaledVector(dir, (extent * 2.4 + 0.25) * back)
     if (camera instanceof THREE.OrthographicCamera) {
       camera.zoom = (Math.min(size.width, size.height) / (extent * 1.5)) * 1
       camera.updateProjectionMatrix()
@@ -155,6 +162,7 @@ function Scene() {
   const projection = useStore((s) => s.projection)
   const showDimensions = useStore((s) => s.showDimensions)
   const moving = useStore((s) => s.drag?.moveId)
+  const narrow = useNarrow()
   const theme = SCENE[themeName]
   const pending = useRef<{ id: string; itemId: string; x: number; y: number } | null>(null)
   const controls = useThree((s) => s.controls) as unknown as { enabled: boolean } | null
@@ -176,7 +184,7 @@ function Scene() {
         st.setDrag({ itemId: p.itemId, moveId: p.id })
       }
       const drag = useStore.getState().drag
-      if (!drag?.moveId) return
+      if (!drag?.moveId && !drag?.held) return
       const pt = pointOnRack(e.clientX, e.clientY, st.rack)
       st.setGhost(
         pt ? dropTarget(st.rack, st.placements, drag, pt.yMm, pt.side, { holes: st.holeSnap }) : null,
@@ -186,20 +194,33 @@ function Scene() {
       pending.current = null
       holdRef.current(false)
       const st = useStore.getState()
-      if (!st.drag?.moveId) return
       const { ghost, drag } = st
+      if (!drag?.moveId && !drag?.held) return
       st.setDrag(null)
       if (!ghost) return
       const r = st.drop(ghost, drag)
-      if (!r.ok && r.errors[0]) toast.error(r.errors[0].message)
+      if (drag.held)
+        report(r.ok ? { ...r, warnings: ghost.issues } : r, {
+          itemId: drag.itemId,
+          side: ghost.side,
+          u: ghost.u,
+        })
+      else if (!r.ok && r.errors[0]) toast.error(r.errors[0].message)
+    }
+    // The browser took the gesture away (a scroll, a system gesture): nothing is dropped.
+    const onCancel = () => {
+      pending.current = null
+      holdRef.current(false)
+      const st = useStore.getState()
+      if (st.drag?.moveId || st.drag?.held) st.setDrag(null)
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
+    window.addEventListener('pointercancel', onCancel)
     return () => {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
+      window.removeEventListener('pointercancel', onCancel)
     }
   }, [])
 
@@ -256,10 +277,18 @@ function Scene() {
             dimmed={moving === p.id}
             onPointerDown={(e: ThreeEvent<PointerEvent>) => {
               if (e.button !== 0) return
+              if (pressAction({ pointerType: e.pointerType, selected: selectedId === p.id }) === 'orbit')
+                return
               e.stopPropagation()
               useStore.getState().select(p.id)
               hold(true)
               pending.current = { id: p.id, itemId: p.itemId, x: e.clientX, y: e.clientY }
+            }}
+            onClick={(e: ThreeEvent<MouseEvent>) => {
+              // A finger selects on tap; its press may have been the start of orbiting.
+              if (!lastPressWasTouch()) return
+              e.stopPropagation()
+              useStore.getState().select(p.id)
             }}
             onContextMenu={(e: ThreeEvent<MouseEvent>) => {
               e.stopPropagation()
@@ -271,9 +300,11 @@ function Scene() {
         <Ghost rack={rack} theme={theme} />
         {showDimensions && <Dimensions rack={rack} theme={theme} units={units} />}
       </group>
-      <GizmoHelper alignment="bottom-right" margin={[56, 64]}>
-        <GizmoViewport axisColors={[theme.text, theme.text, theme.text]} labelColor={theme.background} />
-      </GizmoHelper>
+      {!narrow && (
+        <GizmoHelper alignment="bottom-right" margin={[56, 64]}>
+          <GizmoViewport axisColors={[theme.text, theme.text, theme.text]} labelColor={theme.background} />
+        </GizmoHelper>
+      )}
     </>
   )
 }
@@ -281,6 +312,7 @@ function Scene() {
 export function Viewport() {
   const drag = useStore((s) => s.drag)
   const empty = useStore((s) => s.placements.length === 0)
+  const touch = useNarrow() && isCoarse()
 
   const targetAt = (e: React.DragEvent) => {
     const st = useStore.getState()
@@ -341,7 +373,9 @@ export function Viewport() {
       </Canvas>
       {empty && !drag && (
         <p className="viewport__hint">
-          Drag equipment from the list into the rack. Drag to orbit, scroll to zoom, shift-drag to pan.
+          {touch
+            ? 'Add equipment with + in the list below, or press and hold it and drag it in. One finger orbits, two fingers zoom and pan.'
+            : 'Drag equipment from the list into the rack. Drag to orbit, scroll to zoom, shift-drag to pan.'}
         </p>
       )}
     </div>

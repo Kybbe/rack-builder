@@ -19,6 +19,9 @@ npm run dev
 npm run lint && npm test && npm run build
 ```
 
+On a phone the list becomes a sheet you pull up from the bottom, and you add equipment with its + button or by
+pressing and holding it and dragging it into the rack.
+
 The rack is saved in the browser as you work. File → Export gives a JSON file, and File → Copy share link puts the
 whole rack in a URL.
 

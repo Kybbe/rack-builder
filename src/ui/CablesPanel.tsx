@@ -90,6 +90,42 @@ function Row({ row }: { row: CableRow }) {
   )
 }
 
+/** The half-made cable: where it starts, and how to finish or drop it. Also shown on the phone sheet. */
+export function CablePending() {
+  const rack = useStore((s) => s.rack)
+  const placements = useStore((s) => s.placements)
+  const pending = useStore((s) => s.pendingPort)
+  const from = useMemo(
+    () => (pending ? portsOf(rack, placements).find((p) => p.id === pending) : undefined),
+    [pending, rack, placements],
+  )
+  if (!from) return null
+  return (
+    <div className="cable-pending" role="status">
+      <span>
+        Cable from <strong>{from.device}</strong> · {from.label}. Pick the other end.
+      </span>
+      <span className="btn-row">
+        {from.kind === 'inlet' && (
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              const r = useStore.getState().clickPort(WALL)
+              if (!r.ok) toast.error(r.error)
+            }}
+          >
+            To the wall socket
+          </button>
+        )}
+        <button type="button" className="btn btn--ghost" onClick={() => useStore.getState().cancelCable()}>
+          Cancel
+        </button>
+      </span>
+    </div>
+  )
+}
+
 export function CablesPanel() {
   const rack = useStore((s) => s.rack)
   const placements = useStore((s) => s.placements)
@@ -123,8 +159,8 @@ export function CablesPanel() {
           </span>
         </div>
         <p className="note">
-          Click a port in the rack, then the port it plugs into. Switch and patch panel ports are on the
-          front. Power inlets and the LAN ports of servers and mini PCs are on the back.
+          Pick a port in the rack, then the port it plugs into. Switch and patch panel ports are on the front.
+          Power inlets and the LAN ports of servers and mini PCs are on the back.
         </p>
         <Field label="Long cables run">
           <Segmented
@@ -148,32 +184,7 @@ export function CablesPanel() {
           />
         </Field>
         {from ? (
-          <div className="cable-pending" role="status">
-            <span>
-              Cable from <strong>{from.device}</strong> · {from.label}. Pick the other end.
-            </span>
-            <span className="btn-row">
-              {from.kind === 'inlet' && (
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => {
-                    const r = useStore.getState().clickPort(WALL)
-                    if (!r.ok) toast.error(r.error)
-                  }}
-                >
-                  To the wall socket
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={() => useStore.getState().cancelCable()}
-              >
-                Cancel
-              </button>
-            </span>
-          </div>
+          <CablePending />
         ) : (
           placements.length === 0 && <p className="empty">Put equipment in the rack first.</p>
         )}

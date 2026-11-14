@@ -1043,25 +1043,6 @@ code {
   font-family: var(--font-ui) !important;
   border-radius: var(--r) !important;
 }
-.drawer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  max-height: 70vh;
-  background: var(--surface);
-  border-top: 1px solid var(--line-strong);
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-}
-.drawer .inspector__body {
-  border: 0;
-}
-.drawer__handle {
-  margin: 8px auto 0;
-}
-
 /* sidebar: resize, collapse, wider cards */
 .app[data-side='collapsed'] {
   grid-template-columns: 0 minmax(0, 1fr);
@@ -1148,31 +1129,6 @@ code {
   vector-effect: non-scaling-stroke;
 }
 
-@media (max-width: 900px) {
-  .app {
-    grid-template: var(--bar-h) minmax(0, 1fr) minmax(0, 1fr) / minmax(0, 1fr);
-    grid-template-areas: 'top' 'stage' 'side';
-  }
-  .side {
-    border-right: 0;
-    border-top: 1px solid var(--line);
-  }
-  .topbar {
-    overflow-x: auto;
-  }
-  .kbd-btn,
-  .brand,
-  .panel-toggle,
-  .resizer {
-    display: none;
-  }
-  .app[data-side='collapsed'] .side {
-    display: block;
-  }
-  .budget__cell:nth-child(n + 3) {
-    display: none;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
@@ -1331,4 +1287,260 @@ code {
 }
 .dialog .btn-row {
   justify-self: end;
+}
+
+/* popover */
+.popover {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  z-index: 60;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.28);
+  max-width: min(320px, calc(100vw - 16px));
+  display: grid;
+  gap: 8px;
+}
+.totals__list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+}
+.totals__list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.totals__list dt {
+  color: var(--text-3);
+}
+
+/* phone: the side panel is a bottom sheet (keep the width in step with NARROW in useNarrow.ts) */
+.app[data-narrow] {
+  --peek: 84px;
+  grid-template: var(--bar-h) minmax(0, 1fr) / minmax(0, 1fr);
+  grid-template-areas: 'top' 'stage';
+  height: 100dvh;
+}
+.app[data-narrow] .topbar {
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+}
+.app[data-narrow] .brand {
+  margin-right: 0;
+}
+.app[data-narrow] .stage {
+  /* The sheet peeks over the bottom of the page, so nothing of the stage may sit under it. */
+  padding-bottom: var(--peek);
+  transition: padding-bottom 0.25s ease;
+}
+:root[data-sheet='half'] .app[data-narrow] .stage,
+:root[data-sheet='full'] .app[data-narrow] .stage {
+  padding-bottom: 55dvh;
+}
+.app[data-narrow] .viewbar {
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.app[data-narrow] .viewbar::-webkit-scrollbar {
+  display: none;
+}
+.app[data-narrow] .viewbar__btn {
+  flex: none;
+}
+.app[data-narrow] .viewport__hint {
+  white-space: normal;
+  text-align: center;
+  width: calc(100% - 32px);
+}
+.budget--compact {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--line);
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.budget--compact .budget__cell--bar {
+  border-right: 0;
+}
+.budget--compact .budget__cell--warn {
+  cursor: pointer;
+}
+
+.sheet {
+  --head: 64px;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-top: 1px solid var(--line-strong);
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 -8px 24px rgb(0 0 0 / 0.25);
+  outline: none;
+}
+/* Vaul draws the grip; this makes the whole strip above the tabs the place to drag. */
+.sheet__handle {
+  flex: none;
+  width: 100% !important;
+  height: 20px !important;
+  margin: 0 !important;
+  background: none !important;
+  opacity: 1 !important;
+  border-radius: 0 !important;
+  position: relative;
+  touch-action: none;
+  cursor: grab;
+}
+.sheet__handle::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 36px;
+  height: 4px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+.sheet__head {
+  flex: none;
+  min-height: 44px;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+  padding: 0 4px;
+}
+.sheet__tabs {
+  flex: 1;
+  display: flex;
+}
+.sheet__head .tabs {
+  flex: 1;
+  height: 44px;
+}
+.sheet__head .tabs__tab {
+  flex: 1;
+  padding: 0 4px;
+}
+.sheet__head .cable-pending {
+  flex: 1;
+  border: 0;
+  padding: 4px 8px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.sheet__back {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 0;
+  padding: 0 10px;
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sheet__what {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+  font-weight: 500;
+}
+.sheet__body {
+  flex: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  container-type: inline-size;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+/* The sheet is as tall as the window and slid down; only this much of it is on screen at each stop. */
+.sheet[data-snap='peek'] .sheet__body {
+  height: 0;
+  overflow: hidden;
+}
+.sheet[data-snap='half'] .sheet__body {
+  height: calc(55dvh - var(--head));
+}
+.sheet[data-snap='full'] .sheet__body {
+  height: calc(92dvh - var(--head));
+}
+.sheet .inspector__body {
+  border: 0;
+  max-height: none;
+  overflow: visible;
+}
+.sheet .inspector__head .icon-btn {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .kbd-btn,
+  .panel-toggle,
+  .resizer {
+    display: none;
+  }
+  .dialog,
+  .palette {
+    top: max(12px, env(safe-area-inset-top));
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+  }
+  /* iOS zooms the page when a focused field has text smaller than 16px. */
+  input,
+  select,
+  textarea,
+  .palette__input {
+    font-size: 16px;
+  }
+}
+
+/* a finger needs bigger targets than a mouse */
+@media (pointer: coarse) {
+  .btn,
+  .picker,
+  .seg__item {
+    min-height: 36px;
+  }
+  .icon-btn {
+    min-width: 36px;
+    min-height: 36px;
+  }
+  .card__add {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .stepper button {
+    min-width: 40px;
+    min-height: 36px;
+  }
+  .menu__item {
+    height: 40px;
+    padding: 0 12px;
+  }
+  .viewbar {
+    height: 36px;
+  }
+  .viewbar__btn {
+    padding: 0 12px;
+  }
+  .link {
+    padding: 6px 0;
+  }
+  /* A long press on a card starts a drag; it must not select text or open the system menu. */
+  .card {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
 }

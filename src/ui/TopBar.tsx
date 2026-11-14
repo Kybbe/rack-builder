@@ -1,4 +1,4 @@
-import * as Tabs from '@radix-ui/react-tabs'
+import { TabList } from './Panels'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as AlertDialog from '@radix-ui/react-alert-dialog'
@@ -17,7 +17,7 @@ interface ModelCredit {
   sourceUrl: string
 }
 
-export function TopBar() {
+export function TopBar({ narrow = false }: { narrow?: boolean }) {
   const units = useStore((s) => s.units)
   const look = useStore((s) => s.look)
   const theme = useStore((s) => s.theme)
@@ -53,46 +53,75 @@ export function TopBar() {
         </svg>
         Rack Builder
       </h1>
-      <Tabs.List className="tabs" aria-label="Mode">
-        <Tabs.Trigger value="build" className="tabs__tab">
-          Build
-        </Tabs.Trigger>
-        <Tabs.Trigger value="cables" className="tabs__tab">
-          Cables
-        </Tabs.Trigger>
-        <Tabs.Trigger value="plan" className="tabs__tab">
-          Plan
-        </Tabs.Trigger>
-        <Tabs.Trigger value="print" className="tabs__tab">
-          3D print
-        </Tabs.Trigger>
-      </Tabs.List>
+      {!narrow && <TabList />}
       <div className="topbar__spacer" />
-      <Segmented
-        label="Units"
-        value={units}
-        onChange={(units) => set({ units })}
-        options={[
-          { value: 'mm', label: 'mm' },
-          { value: 'in', label: 'in' },
-        ]}
-      />
-      <Segmented
-        label="Look"
-        value={look}
-        onChange={(look) => set({ look })}
-        options={[
-          { value: 'real', label: 'Realistic', title: 'Device colours and 3D models where available' },
-          { value: 'cad', label: 'CAD', title: 'Plain line drawing look for everything' },
-        ]}
-      />
-      <button type="button" className="btn btn--ghost kbd-btn" onClick={() => set({ paletteOpen: true })}>
-        Search <kbd>⌘K</kbd>
-      </button>
+      {!narrow && (
+        <>
+          <Segmented
+            label="Units"
+            value={units}
+            onChange={(units) => set({ units })}
+            options={[
+              { value: 'mm', label: 'mm' },
+              { value: 'in', label: 'in' },
+            ]}
+          />
+          <Segmented
+            label="Look"
+            value={look}
+            onChange={(look) => set({ look })}
+            options={[
+              { value: 'real', label: 'Realistic', title: 'Device colours and 3D models where available' },
+              { value: 'cad', label: 'CAD', title: 'Plain line drawing look for everything' },
+            ]}
+          />
+          <button type="button" className="btn btn--ghost kbd-btn" onClick={() => set({ paletteOpen: true })}>
+            Search <kbd>⌘K</kbd>
+          </button>
+        </>
+      )}
+      {narrow && (
+        <button
+          type="button"
+          className="btn btn--ghost"
+          onClick={() => set({ paletteOpen: true })}
+          aria-label="Search equipment and actions"
+        >
+          Search
+        </button>
+      )}
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger className="btn">File ▾</DropdownMenu.Trigger>
+        <DropdownMenu.Trigger className="btn" aria-label={narrow ? 'Menu' : undefined}>
+          {narrow ? '⋯' : 'File ▾'}
+        </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content className="menu" align="end" sideOffset={4}>
+            {narrow && (
+              <>
+                <DropdownMenu.Label className="menu__label">Units</DropdownMenu.Label>
+                <DropdownMenu.RadioGroup
+                  value={units}
+                  onValueChange={(v) => set({ units: v as typeof units })}
+                >
+                  <DropdownMenu.RadioItem className="menu__item" value="mm">
+                    Millimetres
+                  </DropdownMenu.RadioItem>
+                  <DropdownMenu.RadioItem className="menu__item" value="in">
+                    Inches
+                  </DropdownMenu.RadioItem>
+                </DropdownMenu.RadioGroup>
+                <DropdownMenu.Label className="menu__label">Look</DropdownMenu.Label>
+                <DropdownMenu.RadioGroup value={look} onValueChange={(v) => set({ look: v as typeof look })}>
+                  <DropdownMenu.RadioItem className="menu__item" value="real">
+                    Realistic
+                  </DropdownMenu.RadioItem>
+                  <DropdownMenu.RadioItem className="menu__item" value="cad">
+                    CAD
+                  </DropdownMenu.RadioItem>
+                </DropdownMenu.RadioGroup>
+                <DropdownMenu.Separator className="menu__sep" />
+              </>
+            )}
             <DropdownMenu.Item className="menu__item" onSelect={() => void copyShareLink()}>
               Copy share link
             </DropdownMenu.Item>
@@ -109,7 +138,7 @@ export function TopBar() {
                 if (!useStore.getState().undo()) toast.message('Nothing to undo')
               }}
             >
-              Undo <span className="menu__hint">⌘Z</span>
+              Undo {!narrow && <span className="menu__hint">⌘Z</span>}
             </DropdownMenu.Item>
             <DropdownMenu.Item
               className="menu__item"
@@ -146,7 +175,7 @@ export function TopBar() {
             <AlertDialog.Title>Reset everything?</AlertDialog.Title>
             <AlertDialog.Description>
               This removes all equipment and cables and puts the rack back to the 10" 8U starting size. You
-              can still undo it with ⌘Z until you reload the page.
+              can still undo it until you reload the page.
             </AlertDialog.Description>
             <div className="btn-row">
               <AlertDialog.Cancel className="btn">Keep my rack</AlertDialog.Cancel>

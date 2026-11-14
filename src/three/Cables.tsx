@@ -3,6 +3,8 @@ import { Html, Line } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { toast } from 'sonner'
+import { tapHandlers } from './touch'
+import { isCoarse, narrowNow } from '../ui/useNarrow'
 import { useStore } from '../state/store'
 import {
   CABLE_NAME,
@@ -65,16 +67,22 @@ function CableTube({
     return new THREE.TubeGeometry(curve, path.length * 3, radius * (selected ? 1.35 : 1), 8)
   }, [row.points, radius, selected])
   useEffect(() => () => geometry.dispose(), [geometry])
+  const grip = useMemo(() => {
+    if (!isCoarse()) return null
+    const path = cablePath(row.points)
+    const curve = new THREE.CatmullRomCurve3(path, false, 'catmullrom', 0)
+    return new THREE.TubeGeometry(curve, path.length * 2, Math.max(radius * 3, 10), 6)
+  }, [row.points, radius])
+  useEffect(() => () => grip?.dispose(), [grip])
   return (
-    <mesh
-      geometry={geometry}
-      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
-        if (e.button !== 0) return
-        e.stopPropagation()
-        onSelect()
-      }}
-    >
+    <mesh geometry={geometry} {...tapHandlers<ThreeEvent<PointerEvent>>(onSelect)}>
       <meshStandardMaterial color={color} roughness={0.6} />
+      {grip && (
+        // A cable is a few millimetres thick: far too thin to hit with a finger.
+        <mesh geometry={grip} {...tapHandlers<ThreeEvent<PointerEvent>>(onSelect)}>
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      )}
     </mesh>
   )
 }
@@ -90,6 +98,7 @@ export function Cables({ rack, theme, units }: { rack: Rack; theme: SceneTheme; 
   const routing = useStore((s) => s.cableRouting)
   const active = useStore((s) => s.tab === 'cables')
   const pending = useStore((s) => s.pendingPort)
+  const coarse = isCoarse()
   const selectedId = useStore((s) => s.selectedCableId)
   const [hover, setHover] = useState<string | null>(null)
   const leave = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -121,15 +130,15 @@ export function Cables({ rack, theme, units }: { rack: Rack; theme: SceneTheme; 
       ? measure(rack, from, hover === WALL ? WALL : over!, routing)
       : null
 
-  const click = (id: string) => (e: ThreeEvent<PointerEvent>) => {
-    if (e.button !== 0) return
-    e.stopPropagation()
+  const click = (id: string) => () => {
     const st = useStore.getState()
     const before = st.cables.length
     const r = st.clickPort(id)
     if (!r.ok) return void toast.error(r.error)
     const now = useStore.getState()
     if (now.cables.length > before) {
+      // On a phone the selection takes over the sheet; wiring several ports in a row must not.
+      if (narrowNow()) now.selectCable(null)
       const row = cableReport(now.rack, now.placements, now.cables, { routing: now.cableRouting }).rows.at(-1)
       if (row)
         toast.success(
@@ -225,11 +234,11 @@ export function Cables({ rack, theme, units }: { rack: Rack; theme: SceneTheme; 
                   so the device behind it can never win the click. */}
               <mesh
                 position={[0, 0, sign * 7]}
-                onPointerDown={click(p.id)}
+                {...tapHandlers<ThreeEvent<PointerEvent>>(click(p.id))}
                 onPointerOver={hoverOn(p.id)}
                 onPointerOut={hoverOff}
               >
-                <boxGeometry args={[w + 3, h + 1.6, 14]} />
+                <boxGeometry args={[w + 3, h + (coarse ? 6 : 1.6), 14]} />
                 <meshBasicMaterial transparent opacity={0} depthWrite={false} />
               </mesh>
             </group>
@@ -238,7 +247,11 @@ export function Cables({ rack, theme, units }: { rack: Rack; theme: SceneTheme; 
 
       {active && (
         <group position={[wall.x, wall.y, wall.z]}>
-          <mesh onPointerDown={click(WALL)} onPointerOver={hoverOn(WALL)} onPointerOut={hoverOff}>
+          <mesh
+            {...tapHandlers<ThreeEvent<PointerEvent>>(click(WALL))}
+            onPointerOver={hoverOn(WALL)}
+            onPointerOut={hoverOff}
+          >
             <boxGeometry args={[46, 46, 10]} />
             <meshBasicMaterial
               color={hover === WALL || from?.kind === 'inlet' ? theme.accent : theme.edge}

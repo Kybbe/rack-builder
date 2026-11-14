@@ -385,6 +385,7 @@ interface DeviceProps {
   selected: boolean
   dimmed?: boolean
   onPointerDown?: (e: ThreeEvent<PointerEvent>) => void
+  onClick?: (e: ThreeEvent<MouseEvent>) => void
   onContextMenu?: (e: ThreeEvent<MouseEvent>) => void
 }
 
@@ -396,6 +397,7 @@ export function Device({
   selected,
   dimmed,
   onPointerDown,
+  onClick,
   onContextMenu,
 }: DeviceProps) {
   const res = resolvePlacement(placement, rack)
@@ -524,6 +526,7 @@ export function Device({
       position={[0, y, front ? g.frontZ : g.rearZ]}
       rotation={[0, front ? 0 : Math.PI, 0]}
       onPointerDown={onPointerDown}
+      onClick={onClick}
       onContextMenu={onContextMenu}
       visible={!dimmed}
       userData={{ placementId: placement.id }}

@@ -2,33 +2,19 @@ import { useEffect } from 'react'
 import * as Tabs from '@radix-ui/react-tabs'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import * as ScrollArea from '@radix-ui/react-scroll-area'
 import { Toaster, toast } from 'sonner'
 import { useStore, type Tab } from './state/store'
 import { getItem } from './catalog'
 import { Viewport } from './three/Viewport'
 import { TopBar } from './ui/TopBar'
-import { RackSettings } from './ui/RackSettings'
-import { CatalogPanel } from './ui/CatalogPanel'
-import { PlannerPanel } from './ui/PlannerPanel'
-import { CablesPanel } from './ui/CablesPanel'
-import { PrintPanel } from './ui/PrintPanel'
 import { Inspector, removeWithUndo } from './ui/Inspector'
 import { BudgetBar, ViewToolbar } from './ui/Overlays'
 import { CommandPalette } from './ui/CommandPalette'
+import { Panels, Scroll } from './ui/Panels'
+import { Sheet } from './ui/Sheet'
+import { useNarrow } from './ui/useNarrow'
 import { loadFromHash } from './ui/io'
 import { report } from './ui/feedback'
-
-function Scroll({ children }: { children: React.ReactNode }) {
-  return (
-    <ScrollArea.Root className="scroll">
-      <ScrollArea.Viewport className="scroll__view">{children}</ScrollArea.Viewport>
-      <ScrollArea.Scrollbar orientation="vertical" className="scroll__bar">
-        <ScrollArea.Thumb className="scroll__thumb" />
-      </ScrollArea.Scrollbar>
-    </ScrollArea.Root>
-  )
-}
 
 function SceneMenu() {
   const selected = useStore((s) => s.placements.find((p) => p.id === s.selectedId))
@@ -138,6 +124,7 @@ export function App() {
   const sideCollapsed = useStore((s) => s.sideCollapsed)
   const theme = useStore((s) => s.theme)
   const set = useStore((s) => s.set)
+  const narrow = useNarrow()
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -186,6 +173,7 @@ export function App() {
     <Tooltip.Provider delayDuration={250} skipDelayDuration={400}>
       <Tabs.Root
         className="app"
+        data-narrow={narrow ? '' : undefined}
         data-side={sideCollapsed ? 'collapsed' : 'open'}
         style={{ '--side-w': `${sideWidth}px` } as React.CSSProperties}
         value={tab}
@@ -194,46 +182,51 @@ export function App() {
           set({ tab: v as Tab, sideCollapsed: false })
         }}
       >
-        <TopBar />
-        <aside className="side">
-          <Scroll>
-            <Tabs.Content value="build" className="side__tab">
-              <RackSettings />
-              <CatalogPanel mode="build" />
-            </Tabs.Content>
-            <Tabs.Content value="cables" className="side__tab">
-              <CablesPanel />
-            </Tabs.Content>
-            <Tabs.Content value="plan" className="side__tab">
-              <PlannerPanel />
-              <CatalogPanel mode="plan" />
-            </Tabs.Content>
-            <Tabs.Content value="print" className="side__tab">
-              <PrintPanel />
-            </Tabs.Content>
-          </Scroll>
-        </aside>
+        <TopBar narrow={narrow} />
+        {!narrow && (
+          <aside className="side">
+            <Scroll>
+              <Panels />
+            </Scroll>
+          </aside>
+        )}
         <main className="stage">
-          <Resizer />
-          <ContextMenu.Root>
-            <ContextMenu.Trigger asChild>
-              <div className="stage__canvas">
-                <Viewport />
-              </div>
-            </ContextMenu.Trigger>
-            <ContextMenu.Portal>
-              <ContextMenu.Content className="menu">
-                <SceneMenu />
-              </ContextMenu.Content>
-            </ContextMenu.Portal>
-          </ContextMenu.Root>
+          {narrow ? (
+            // A long press belongs to orbiting on a phone; everything in the menu is also in the sheet.
+            <div className="stage__canvas">
+              <Viewport />
+            </div>
+          ) : (
+            <>
+              <Resizer />
+              <ContextMenu.Root>
+                <ContextMenu.Trigger asChild>
+                  <div className="stage__canvas">
+                    <Viewport />
+                  </div>
+                </ContextMenu.Trigger>
+                <ContextMenu.Portal>
+                  <ContextMenu.Content className="menu">
+                    <SceneMenu />
+                  </ContextMenu.Content>
+                </ContextMenu.Portal>
+              </ContextMenu.Root>
+            </>
+          )}
           <ViewToolbar />
-          <Inspector />
-          <BudgetBar />
+          {!narrow && <Inspector />}
+          <BudgetBar compact={narrow} />
         </main>
+        {narrow && <Sheet />}
       </Tabs.Root>
       <CommandPalette />
-      <Toaster theme={theme} position="bottom-center" offset={56} toastOptions={{ className: 'toast' }} />
+      <Toaster
+        theme={theme}
+        position={narrow ? 'top-center' : 'bottom-center'}
+        offset={56}
+        mobileOffset={{ top: 96 }}
+        toastOptions={{ className: 'toast' }}
+      />
     </Tooltip.Provider>
   )
 }

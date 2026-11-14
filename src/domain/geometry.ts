@@ -45,6 +45,8 @@ export interface DragSource {
   itemId: string
   config?: Configurable
   moveId?: string
+  /** Started by pressing and holding a card with a finger, so it is followed with pointer events. */
+  held?: boolean
 }
 
 export interface DropTarget {
