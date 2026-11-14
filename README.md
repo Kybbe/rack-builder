@@ -42,3 +42,20 @@ To show a real model instead, put a `.glb` in `public/models/` and add
 `{ "itemId", "file", "title", "author", "licence", "sourceUrl" }` to `src/catalog/models.json`. The model is squeezed
 into the catalog dimensions so it can never disagree with the fit checks, and it is credited under File → Credits.
 Only add models whose licence allows redistribution (CC0, CC BY, MIT). GrabCAD files may not be shipped.
+
+## Hosting
+
+The site is static files, so it runs as one small nginx container and keeps nothing on the server: each rack lives in
+the visitor's browser.
+
+`docker-compose.yml` is written to be a Portainer stack created from this repository (Stacks → Add stack →
+Repository, compose path `docker-compose.yml`) with **GitOps updates** on. Portainer then polls the repository and, on
+a new commit, builds the image on the server and replaces the container. No image registry is involved. The compose
+file sets `pull_policy: build` because Compose would otherwise keep using the image built from the previous commit.
+
+The stack joins the network of the `websites` stack, which must already exist, so that stack's Cloudflare tunnel can
+reach the site as `http://rack-builder:80`. On the LAN it listens on port 8090; set `RACK_BUILDER_PORT` in the stack's
+environment variables to change that.
+
+A commit that does not build leaves the previous container running; Portainer shows the failed deploy on the stack.
+CI builds the same image and runs `deploy/smoke.sh` against it, so look at CI first.

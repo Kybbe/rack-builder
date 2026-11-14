@@ -1,0 +1,25 @@
+# Portainer stack, deployed from this repository (see "Hosting" in the README).
+# Portainer polls the repository and runs this file again on every new commit.
+services:
+  rack-builder:
+    build: .
+    image: rack-builder:latest
+    # Always build on deploy: without this Compose reuses the image from the previous commit.
+    pull_policy: build
+    container_name: rack-builder
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Stockholm
+    ports:
+      - '${RACK_BUILDER_PORT:-8090}:80'
+    networks:
+      - websites
+    labels:
+      # Built on the server, so there is nothing for watchtower to pull.
+      - com.centurylinklabs.watchtower.enable=false
+
+networks:
+  # The network of the "websites" stack, so its Cloudflare tunnel reaches this as http://rack-builder:80.
+  websites:
+    name: websites_default
+    external: true
