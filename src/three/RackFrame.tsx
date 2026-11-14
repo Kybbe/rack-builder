@@ -41,7 +41,7 @@ export function RackFrame({ rack, theme, units }: Props) {
     setHoverU(u >= 1 && u <= rack.heightU ? u : null)
   }
 
-  const frameMat = <meshStandardMaterial color={theme.frame} roughness={0.7} metalness={0.3} />
+  const frameMat = <meshStandardMaterial color={rack.color ?? theme.frame} roughness={0.7} metalness={0.3} />
 
   return (
     <group>

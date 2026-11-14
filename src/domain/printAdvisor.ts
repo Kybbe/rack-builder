@@ -75,6 +75,35 @@ export function fitsOnBed(
   return null
 }
 
+export type Fastening = 'inserts' | 'captive-nuts' | 'cage-nuts' | 'printed-threads'
+
+/** Ways to give a printed rail a thread. They replace each other: pick one for the whole rack. */
+export const FASTENINGS: { id: Fastening; name: string; nut?: string; blurb: string }[] = [
+  {
+    id: 'inserts',
+    name: 'Heat-set inserts',
+    nut: 'M6 heat-set inserts',
+    blurb: 'Brass inserts melted into the rail with a soldering iron. Strong and reusable, the usual choice.',
+  },
+  {
+    id: 'captive-nuts',
+    name: 'Square nuts',
+    nut: 'M6 square nuts (DIN 562)',
+    blurb: 'Nuts pushed into pockets behind each hole. Cheap, no soldering iron, the rail needs the pockets.',
+  },
+  {
+    id: 'cage-nuts',
+    name: 'Cage nuts',
+    nut: 'M6 cage nuts',
+    blurb: 'Like a steel rack: needs 9.5 mm square holes and thick rails, so only for sturdy prints.',
+  },
+  {
+    id: 'printed-threads',
+    name: 'Printed threads',
+    blurb: 'Screws cut straight into the plastic. Nothing to buy, wears out after a few changes.',
+  },
+]
+
 export interface HardwareLine {
   id: string
   label: string
@@ -110,7 +139,14 @@ const RAIL_FILL = 0.45
 const PLATE_FILL = 0.5
 const PETG_G_PER_CM3 = 1.27
 
-export function advisePrint(rack: Rack, placements: Placement[], printer: Printer): PrintAdvice {
+export function advisePrint(
+  rack: Rack,
+  placements: Placement[],
+  printer: Printer,
+  opts: { fastening?: Fastening } = {},
+): PrintAdvice {
+  const fastening = FASTENINGS.find((f) => f.id === (opts.fastening ?? 'inserts'))!
+  const plain = fastening.id === 'inserts' || fastening.id === 'cage-nuts' ? 'heat-set inserts' : 'hex nuts'
   const std = RACK_STANDARDS[rack.standard]
   const section = rack.standard === '10' ? 20 : 25
   const bed = { x: printer.x, y: printer.y }
@@ -158,27 +194,28 @@ export function advisePrint(rack: Rack, placements: Placement[], printer: Printe
       qty: deviceScrews,
       note: '4 per device up to 2U, 8 for taller ones',
     })
-    hardware.push({
-      id: 'device-nuts',
-      label: 'M6 heat-set inserts or captive square nuts',
-      qty: deviceScrews,
-      note: `Filling every hole in the front rails would take ${rack.heightU * 3 * 2}`,
-    })
+    if (fastening.nut)
+      hardware.push({
+        id: 'device-nuts',
+        label: fastening.nut,
+        qty: deviceScrews,
+        note: `Filling every hole in the front rails would take ${rack.heightU * 3 * 2}`,
+      })
   }
   hardware.push({
     id: 'frame-bolts',
-    label: 'M5 × 16 mm bolts + M5 heat-set inserts',
+    label: `M5 × 16 mm bolts with M5 ${plain}`,
     qty: 16,
     note: '2 at each end of each rail, into the top and bottom plates',
   })
   const joints = 4 * (parts - 1)
   if (joints > 0) {
-    hardware.push({ id: 'joint-bolts', label: 'M3 × 20 mm bolts + M3 heat-set inserts', qty: joints * 2 })
+    hardware.push({ id: 'joint-bolts', label: `M3 × 20 mm bolts with M3 ${plain}`, qty: joints * 2 })
     hardware.push({
       id: 'joint-pins',
-      label: '3 mm steel dowel pins (or filament offcuts)',
+      label: '3 mm steel dowel pins',
       qty: joints * 2,
-      note: 'Keep the rail halves in line',
+      note: 'Keep the rail halves in line. Filament offcuts also work',
     })
   }
   if (plateParts > 1) {

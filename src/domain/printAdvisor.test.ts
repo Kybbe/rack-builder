@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Placement, Rack } from './types'
-import { PRINTERS, advisePrint, fitsOnBed } from './printAdvisor'
+import { FASTENINGS, PRINTERS, advisePrint, fitsOnBed, type Fastening } from './printAdvisor'
 
 const rack = (heightU: number, extra: Partial<Rack> = {}): Rack => ({
   standard: '10',
@@ -156,5 +156,34 @@ describe('advice for printing a 10 inch rack', () => {
     const placements: Placement[] = [{ id: 'a', itemId: 'dell-r740', u: 1, side: 'front' }]
     const a = advisePrint(rack(12, { standard: '19', depthMm: 800 }), placements, printer('voron-24-350'))
     expect(a.warnings.join(' ')).toMatch(/metal|extrusion/i)
+  })
+})
+
+describe('one way of fastening at a time', () => {
+  const rack: Rack = { standard: '10', heightU: 8, depthMm: 260, style: 'open', casters: false }
+  const gear: Placement[] = [{ id: 'a', itemId: 'patch-panel-12-10', u: 8, side: 'front' }]
+  const printer = PRINTERS.find((p) => p.id === 'bambu-p1s')!
+  const lines = (fastening: Fastening) => advisePrint(rack, gear, printer, { fastening }).hardware
+
+  it.each([
+    ['inserts', /heat-set inserts/i, /nuts/i],
+    ['captive-nuts', /square nuts/i, /insert|cage/i],
+    ['cage-nuts', /cage nuts/i, /insert|square nuts/i],
+  ] as const)('%s lists only that kind for the equipment', (fastening, wanted, unwanted) => {
+    const nuts = lines(fastening).find((h) => h.id === 'device-nuts')!
+    expect(nuts.label).toMatch(wanted)
+    expect(nuts.label).not.toMatch(unwanted)
+    expect(nuts.label).not.toMatch(/\bor\b/)
+    expect(nuts.qty).toBe(4)
+    expect(lines(fastening).filter((h) => h.id === 'device-nuts')).toHaveLength(1)
+  })
+
+  it('printed threads need nothing but the screws', () => {
+    expect(lines('printed-threads').find((h) => h.id === 'device-nuts')).toBeUndefined()
+    expect(lines('printed-threads').find((h) => h.id === 'device-screws')!.qty).toBe(4)
+  })
+
+  it('no line anywhere offers two alternatives at once', () => {
+    for (const f of FASTENINGS) for (const h of lines(f.id)) expect(h.label).not.toMatch(/ or /)
   })
 })

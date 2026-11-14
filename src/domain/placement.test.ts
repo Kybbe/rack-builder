@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { Placement, Rack } from './types'
 import {
   addPlacement,
+  bottomMm,
+  stepHole,
   checkPlacement,
   firstFreeU,
   movePlacement,
@@ -221,5 +223,59 @@ describe('parts whose size follows from a choice', () => {
       config: { kind: 'driveBay', driveSize: '3.5', orientation: 'vertical', count: 8 },
     })
     expect(checkPlacement(rack19, existing, bay).errors.map((e) => e.code)).toContain('overlap')
+  })
+})
+
+describe('mounting one or two holes off the unit grid', () => {
+  it('a device moved up one hole sits 15.875 mm higher, two holes 31.75 mm', () => {
+    expect(bottomMm(p('ubiquiti-udm-pro', 5))).toBeCloseTo(4 * 44.45)
+    expect(bottomMm(p('ubiquiti-udm-pro', 5, { hole: 1 }))).toBeCloseTo(4 * 44.45 + 15.875)
+    expect(bottomMm(p('ubiquiti-udm-pro', 5, { hole: 2 }))).toBeCloseTo(4 * 44.45 + 31.75)
+  })
+
+  it('a device one hole up runs into the device in the unit above', () => {
+    const above = p('ubiquiti-usw-pro-24', 6)
+    const r = checkPlacement(rack19, [above], p('ubiquiti-udm-pro', 5, { hole: 1 }))
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]!.code).toBe('overlap')
+  })
+
+  it('it also runs into a device that starts in the same unit', () => {
+    expect(
+      checkPlacement(rack19, [p('ubiquiti-usw-pro-24', 5)], p('ubiquiti-udm-pro', 5, { hole: 2 })).ok,
+    ).toBe(false)
+  })
+
+  it('two devices shifted by the same hole stack without a gap', () => {
+    const lower = p('ubiquiti-udm-pro', 5, { hole: 1 })
+    expect(checkPlacement(rack19, [lower], p('ubiquiti-usw-pro-24', 6, { hole: 1 })).ok).toBe(true)
+  })
+
+  it('leaves room below for nothing: the unit it left is only partly free', () => {
+    const shifted = p('ubiquiti-udm-pro', 5, { hole: 1 })
+    expect(checkPlacement(rack19, [shifted], p('ubiquiti-usw-pro-24', 5)).ok).toBe(false)
+    expect(checkPlacement(rack19, [shifted], p('ubiquiti-usw-pro-24', 4)).ok).toBe(true)
+  })
+
+  it('cannot stick out of the top of the rack', () => {
+    const r = checkPlacement(rack19, [], p('ubiquiti-udm-pro', 42, { hole: 1 }))
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]!.code).toBe('out-of-bounds')
+  })
+
+  it('moving a device keeps the hole only when one is given', () => {
+    const start = [p('ubiquiti-udm-pro', 5, { hole: 2 })]
+    const onGrid = movePlacement(rack19, start, start[0]!.id, 9, 'front')
+    expect(onGrid.placements[0]).toMatchObject({ u: 9 })
+    expect(onGrid.placements[0]!.hole).toBeUndefined()
+    const off = movePlacement(rack19, start, start[0]!.id, 9, 'front', 1)
+    expect(off.placements[0]).toMatchObject({ u: 9, hole: 1 })
+  })
+
+  it('steps hole by hole across unit borders', () => {
+    expect(stepHole({ u: 5, hole: 0 }, 1)).toEqual({ u: 5, hole: 1 })
+    expect(stepHole({ u: 5, hole: 2 }, 1)).toEqual({ u: 6, hole: 0 })
+    expect(stepHole({ u: 5, hole: 0 }, -1)).toEqual({ u: 4, hole: 2 })
+    expect(stepHole({ u: 5 }, -1)).toEqual({ u: 4, hole: 2 })
   })
 })

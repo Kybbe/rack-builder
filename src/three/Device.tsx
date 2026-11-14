@@ -1,15 +1,16 @@
 import { Component, Suspense, useMemo, useRef, type ReactNode } from 'react'
-import { Edges, useGLTF } from '@react-three/drei'
+import { Edges, useGLTF, useTexture } from '@react-three/drei'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { CatalogItem, Configurable, Placement, Rack } from '../domain/types'
 import { rackGeometry } from '../domain/geometry'
-import { driveGrid, effectiveStandard, resolvePlacement } from '../domain/placement'
+import { bottomMm, driveGrid, effectiveStandard, resolvePlacement } from '../domain/placement'
 import { shelfLayout } from '../domain/shelf'
 import { RACK_STANDARDS, U_MM } from '../domain/units'
 import { getItem } from '../catalog'
 import models from '../catalog/models.json'
-import { featureRects, type Rect } from './features'
+import elevations from '../catalog/elevations.json'
+import { featureRects, type Rect } from '../domain/features'
 import type { SceneTheme } from './sceneTheme'
 import type { Look } from '../state/store'
 
@@ -18,15 +19,79 @@ interface ModelEntry {
   file: string
 }
 const MODEL_BY_ITEM = new Map((models as ModelEntry[]).map((m) => [m.itemId, m.file]))
-export const hasModel = (itemId: string) => MODEL_BY_ITEM.has(itemId)
+interface Elevation {
+  itemId: string
+  front?: string
+  rear?: string
+}
+/** Front and rear photos from the NetBox device-type library (CC0), shown in the realistic look. */
+const PHOTO_BY_ITEM = new Map((elevations as Elevation[]).map((e) => [e.itemId, e]))
+/** Whether the realistic look of this item differs from the CAD look. */
+export const hasModel = (itemId: string) => MODEL_BY_ITEM.has(itemId) || PHOTO_BY_ITEM.has(itemId)
+
+/** A photo on a face, as tall as the face and as wide as the picture's own shape makes it. */
+function Photo({
+  file,
+  maxW,
+  h,
+  z,
+  back,
+}: {
+  file: string
+  maxW: number
+  h: number
+  z: number
+  back?: boolean
+}) {
+  const tex = useTexture(`${import.meta.env.BASE_URL}${file}`, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace
+  })
+  const img = tex.image as { width: number; height: number }
+  const w = Math.min(maxW, (h * img.width) / img.height)
+  return (
+    <mesh position={[0, 0, z]} rotation={[0, back ? Math.PI : 0, 0]}>
+      <planeGeometry args={[w, h]} />
+      <meshBasicMaterial map={tex} toneMapped={false} />
+    </mesh>
+  )
+}
+
+/** The photos of a device when it has them, else (and while they load) the drawn details. */
+function Faces({
+  itemId,
+  drawn,
+  real,
+  front,
+  rear,
+}: {
+  itemId: string
+  drawn: ReactNode
+  real: boolean
+  front: { maxW: number; h: number; z: number }
+  rear?: { maxW: number; h: number; z: number }
+}) {
+  const e = real ? PHOTO_BY_ITEM.get(itemId) : undefined
+  if (!e?.front) return <>{drawn}</>
+  return (
+    <ModelBoundary fallback={drawn}>
+      <Suspense fallback={drawn}>
+        <Photo file={e.front} {...front} />
+        {e.rear && rear && <Photo file={e.rear} {...rear} back />}
+      </Suspense>
+    </ModelBoundary>
+  )
+}
 
 interface Paint {
   theme: SceneTheme
   look: Look
   selected: boolean
+  /** A colour the user picked for this device. */
+  color?: string
 }
 
 function bodyColor(item: CatalogItem, p: Paint, face = false) {
+  if (p.color) return p.color
   if (p.look === 'cad') return face ? p.theme.cadFace : p.theme.cadBody
   return item.color ?? '#2a2c30'
 }
@@ -273,7 +338,13 @@ function LooseBody({ item, upright, p }: { item: CatalogItem; upright: boolean; 
           />
           <Outline p={p} />
         </mesh>
-        <Face rects={rects} z={item.depthMm / 2} p={p} />
+        <Faces
+          itemId={item.id}
+          real={p.look === 'real'}
+          drawn={<Face rects={rects} z={item.depthMm / 2} p={p} />}
+          front={{ maxW: item.widthMm, h: item.heightMm, z: item.depthMm / 2 + 0.2 }}
+          rear={{ maxW: item.widthMm, h: item.heightMm, z: -item.depthMm / 2 - 0.2 }}
+        />
       </group>
     </group>
   )
@@ -331,7 +402,7 @@ export function Device({
   const g = rackGeometry(rack)
   const item = res?.item
   const effLook: Look = placement.cadOnly ? 'cad' : look
-  const p: Paint = { theme, look: effLook, selected }
+  const p: Paint = { theme, look: effLook, selected, ...(placement.color ? { color: placement.color } : {}) }
   const rects = useMemo(
     () =>
       item
@@ -352,7 +423,7 @@ export function Device({
   const bodyW = item.standard === 'both' ? opening - 8 : Math.min(item.widthMm, opening - 2)
   const bodyH = item.configurable || item.standard === 'both' ? h - 2 : Math.min(item.heightMm, h - 0.8)
   const depth = res.depthMm
-  const y = g.u1Y + (placement.u - 1) * U_MM
+  const y = g.u1Y + bottomMm(placement)
   const front = placement.side === 'front'
   const cfg = item.configurable ? (placement.config ?? item.configurable) : undefined
   const modelFile = effLook === 'real' ? MODEL_BY_ITEM.get(item.id) : undefined
@@ -418,7 +489,13 @@ export function Device({
           </mesh>
         )}
         <group position={[0, h / 2, 0]}>
-          <Face rects={rects} z={2.5} p={p} />
+          <Faces
+            itemId={item.id}
+            real={effLook === 'real'}
+            drawn={<Face rects={rects} z={2.5} p={p} />}
+            front={{ maxW: ownPanelW, h: h - 0.8, z: 2.7 }}
+            {...(depth > 6 ? { rear: { maxW: bodyW, h: bodyH, z: -depth - 0.2 } } : {})}
+          />
         </group>
       </group>
     )

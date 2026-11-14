@@ -93,3 +93,33 @@ describe('dropping a dragged device on the rack', () => {
     expect(rackGeometry({ ...rack, casters: true }).u1Y).toBeGreaterThan(rackGeometry(rack).u1Y)
   })
 })
+
+describe('dropping with hole snapping on', () => {
+  const bottom = (u: number) => yOfU(rack, u)
+  it('lands on the nearest mounting hole instead of the nearest unit', () => {
+    // cursor in the middle of a 1U device whose bottom edge is one hole above U5
+    const t = dropTarget(rack, [], { itemId: 'ubiquiti-udm-pro' }, bottom(5) + 15.875 + U_MM / 2, 'front', {
+      holes: true,
+    })
+    expect(t).toMatchObject({ u: 5, hole: 1, ok: true })
+  })
+  it('still lands on the unit grid when the cursor is there', () => {
+    const t = dropTarget(rack, [], { itemId: 'ubiquiti-udm-pro' }, mid(5), 'front', { holes: true })
+    expect(t).toMatchObject({ u: 5, ok: true })
+    expect(t!.hole ?? 0).toBe(0)
+  })
+  it('ignores holes when the option is off', () => {
+    const t = dropTarget(rack, [], { itemId: 'ubiquiti-udm-pro' }, bottom(5) + 15.875 + U_MM / 2, 'front')
+    expect(t!.hole ?? 0).toBe(0)
+  })
+  it('never offers a hole that pushes the device out of the top', () => {
+    const t = dropTarget(rack, [], { itemId: 'ubiquiti-udm-pro' }, 99999, 'front', { holes: true })
+    expect(t).toMatchObject({ u: 12, ok: true })
+    expect(t!.hole ?? 0).toBe(0)
+  })
+  it('a loose device still lands on a shelf that is mounted off the grid', () => {
+    const shelf: Placement = { id: 's', itemId: 'shelf-1u-19', u: 5, side: 'front', hole: 1 }
+    const t = dropTarget(rack, [shelf], { itemId: 'lenovo-m720q' }, bottom(5) + 15.875 + 10, 'front')
+    expect(t).toMatchObject({ kind: 'shelf', shelfId: 's', ok: true })
+  })
+})

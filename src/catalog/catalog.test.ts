@@ -53,8 +53,22 @@ describe('the equipment catalog', () => {
     const r = RACK_PRODUCTS[0]!
     expect(validateCatalog([], [{ ...r, heightU: 0 }]).length).toBeGreaterThan(0)
     expect(
-      validateCatalog([], [{ ...r, outerMm: { ...r.outerMm, h: r.heightU * U_MM - 1 } }]).join(' '),
+      validateCatalog([], [{ ...r, outerMm: { ...r.outerMm!, h: r.heightU * U_MM - 1 } }]).join(' '),
     ).toMatch(/outer height/)
     expect(STANDARD_HEIGHTS[r.standard].length).toBeGreaterThan(0)
+  })
+})
+
+describe('rack products without an outer size', () => {
+  it('is fine for a printed design and an error for a rack you buy', () => {
+    const bought = RACK_PRODUCTS.find((r) => !r.printed)!
+    const printed = RACK_PRODUCTS.find((r) => r.printed)!
+    const strip = (r: typeof bought) => {
+      const copy = { ...r }
+      delete copy.outerMm
+      return copy
+    }
+    expect(validateCatalog([], [strip(printed)])).toEqual([])
+    expect(validateCatalog([], [strip(bought)]).join(' ')).toMatch(/outer size/)
   })
 })

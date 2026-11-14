@@ -1,6 +1,7 @@
 import * as Tabs from '@radix-ui/react-tabs'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Dialog from '@radix-ui/react-dialog'
+import * as AlertDialog from '@radix-ui/react-alert-dialog'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useStore } from '../state/store'
@@ -23,6 +24,7 @@ export function TopBar() {
   const set = useStore((s) => s.set)
   const collapsed = useStore((s) => s.sideCollapsed)
   const [credits, setCredits] = useState(false)
+  const [resetOpen, setResetOpen] = useState(false)
   const list = models as ModelCredit[]
 
   return (
@@ -54,6 +56,9 @@ export function TopBar() {
       <Tabs.List className="tabs" aria-label="Mode">
         <Tabs.Trigger value="build" className="tabs__tab">
           Build
+        </Tabs.Trigger>
+        <Tabs.Trigger value="cables" className="tabs__tab">
+          Cables
         </Tabs.Trigger>
         <Tabs.Trigger value="plan" className="tabs__tab">
           Plan
@@ -117,6 +122,9 @@ export function TopBar() {
             >
               Empty the rack
             </DropdownMenu.Item>
+            <DropdownMenu.Item className="menu__item menu__item--danger" onSelect={() => setResetOpen(true)}>
+              Reset everything…
+            </DropdownMenu.Item>
             <DropdownMenu.Separator className="menu__sep" />
             <DropdownMenu.Item
               className="menu__item"
@@ -125,17 +133,55 @@ export function TopBar() {
               {theme === 'dark' ? 'Light theme' : 'Dark theme'}
             </DropdownMenu.Item>
             <DropdownMenu.Item className="menu__item" onSelect={() => setCredits(true)}>
-              3D model credits
+              Credits
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
 
+      <AlertDialog.Root open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="overlay" />
+          <AlertDialog.Content className="dialog">
+            <AlertDialog.Title>Reset everything?</AlertDialog.Title>
+            <AlertDialog.Description>
+              This removes all equipment and cables and puts the rack back to the 10" 8U starting size. You
+              can still undo it with ⌘Z until you reload the page.
+            </AlertDialog.Description>
+            <div className="btn-row">
+              <AlertDialog.Cancel className="btn">Keep my rack</AlertDialog.Cancel>
+              <AlertDialog.Action
+                className="btn btn--danger"
+                onClick={() => {
+                  useStore.getState().reset()
+                  toast('Everything reset', {
+                    action: { label: 'Undo', onClick: () => useStore.getState().undo() },
+                  })
+                }}
+              >
+                Reset
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+
       <Dialog.Root open={credits} onOpenChange={setCredits}>
         <Dialog.Portal>
           <Dialog.Overlay className="overlay" />
           <Dialog.Content className="dialog">
-            <Dialog.Title>3D model credits</Dialog.Title>
+            <Dialog.Title>Credits</Dialog.Title>
+            <p>
+              Device photos in the realistic look come from the{' '}
+              <a
+                href="https://github.com/netbox-community/devicetype-library"
+                target="_blank"
+                rel="noreferrer"
+              >
+                NetBox device-type library
+              </a>{' '}
+              (CC0). Product names and logos belong to their makers.
+            </p>
             {list.length === 0 ? (
               <Dialog.Description>
                 No third-party 3D models are bundled yet. Every device is drawn from its catalog dimensions.

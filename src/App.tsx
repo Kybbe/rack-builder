@@ -11,6 +11,7 @@ import { TopBar } from './ui/TopBar'
 import { RackSettings } from './ui/RackSettings'
 import { CatalogPanel } from './ui/CatalogPanel'
 import { PlannerPanel } from './ui/PlannerPanel'
+import { CablesPanel } from './ui/CablesPanel'
 import { PrintPanel } from './ui/PrintPanel'
 import { Inspector, removeWithUndo } from './ui/Inspector'
 import { BudgetBar, ViewToolbar } from './ui/Overlays'
@@ -59,12 +60,15 @@ function SceneMenu() {
       <ContextMenu.Label className="menu__label">{getItem(selected.itemId)?.name}</ContextMenu.Label>
       <ContextMenu.Item
         className="menu__item"
-        onSelect={() => say(st().move(selected.id, selected.u, other))}
+        onSelect={() => say(st().move(selected.id, selected.u, other, selected.hole))}
       >
         Move to the {other}
       </ContextMenu.Item>
       <ContextMenu.Item className="menu__item" onSelect={() => say(st().duplicate(selected.id))}>
-        Duplicate
+        Duplicate <span className="menu__hint">D</span>
+      </ContextMenu.Item>
+      <ContextMenu.Item className="menu__item" onSelect={() => st().copy(selected.id)}>
+        Copy <span className="menu__hint">⌘C</span>
       </ContextMenu.Item>
       <ContextMenu.Separator className="menu__sep" />
       <ContextMenu.Item
@@ -145,12 +149,31 @@ export function App() {
       const el = e.target as HTMLElement | null
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
       const st = useStore.getState()
-      if ((e.key === 'Delete' || e.key === 'Backspace') && st.selectedId) {
+      const mod = e.metaKey || e.ctrlKey
+      if ((e.key === 'Delete' || e.key === 'Backspace') && st.selectedCableId) {
+        e.preventDefault()
+        st.removeCable(st.selectedCableId)
+        toast.success('Cable removed', { action: { label: 'Undo', onClick: () => st.undo() } })
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && st.selectedId) {
         e.preventDefault()
         removeWithUndo(st.selectedId)
       } else if (e.key === 'Escape') {
         st.select(null)
-      } else if (e.key.toLowerCase() === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+        st.selectCable(null)
+        st.cancelCable()
+      } else if (e.key.toLowerCase() === 'd' && !mod && !e.altKey && st.selectedId) {
+        e.preventDefault()
+        report(st.duplicate(st.selectedId))
+      } else if (e.key.toLowerCase() === 'c' && mod && st.selectedId) {
+        // Leave the browser's own copy alone while text is selected.
+        if (window.getSelection()?.toString()) return
+        e.preventDefault()
+        if (st.copy(st.selectedId)) toast.message('Copied. Paste with ⌘V or Ctrl+V.')
+      } else if (e.key.toLowerCase() === 'v' && mod) {
+        if (!st.clipboard) return
+        e.preventDefault()
+        report(st.paste())
+      } else if (e.key.toLowerCase() === 'z' && mod && !e.shiftKey) {
         e.preventDefault()
         if (!st.undo()) toast.message('Nothing to undo')
       }
@@ -166,7 +189,10 @@ export function App() {
         data-side={sideCollapsed ? 'collapsed' : 'open'}
         style={{ '--side-w': `${sideWidth}px` } as React.CSSProperties}
         value={tab}
-        onValueChange={(v) => set({ tab: v as Tab, sideCollapsed: false })}
+        onValueChange={(v) => {
+          useStore.getState().cancelCable()
+          set({ tab: v as Tab, sideCollapsed: false })
+        }}
       >
         <TopBar />
         <aside className="side">
@@ -174,6 +200,9 @@ export function App() {
             <Tabs.Content value="build" className="side__tab">
               <RackSettings />
               <CatalogPanel mode="build" />
+            </Tabs.Content>
+            <Tabs.Content value="cables" className="side__tab">
+              <CablesPanel />
             </Tabs.Content>
             <Tabs.Content value="plan" className="side__tab">
               <PlannerPanel />

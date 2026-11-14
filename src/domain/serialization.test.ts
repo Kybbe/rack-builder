@@ -88,3 +88,114 @@ describe('saving and loading a rack', () => {
     expect(fromShareHash('%%%garbage').ok).toBe(false)
   })
 })
+
+describe('saving and loading the cables of a rack', () => {
+  const wired: Layout = {
+    rack: { standard: '19', heightU: 12, depthMm: 600, style: 'open', casters: false },
+    placements: [
+      { id: 'udm', itemId: 'ubiquiti-udm-pro', u: 12, side: 'front' },
+      { id: 'sw', itemId: 'ubiquiti-usw-pro-24', u: 11, side: 'front' },
+      { id: 'pdu', itemId: 'pdu-8-19', u: 1, side: 'rear' },
+    ],
+    cables: [
+      { id: 'c1', from: 'udm:f2.0', to: 'sw:f1.0' },
+      { id: 'c2', from: 'pdu:f0.0', to: 'udm:pwr', lengthMm: 1500 },
+      { id: 'c3', from: 'pdu:pwr', to: 'wall' },
+    ],
+  }
+  const edited = (change: (raw: { cables: Record<string, unknown>[] }) => void) => {
+    const raw = JSON.parse(serializeLayout(wired))
+    change(raw)
+    return parseLayout(JSON.stringify(raw))
+  }
+
+  it('an exported rack comes back with every cable and the lengths that were picked', () => {
+    const r = parseLayout(serializeLayout(wired))
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.layout).toEqual(wired)
+    const link = fromShareHash(toShareHash(wired))
+    expect(link.ok && link.layout.cables).toEqual(wired.cables)
+  })
+
+  it('still opens a file saved before cables existed', () => {
+    const old = JSON.parse(serializeLayout(layout))
+    old.version = 1
+    const r = parseLayout(JSON.stringify(old))
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.layout.cables ?? []).toEqual([])
+  })
+
+  it('rejects a cable to a port that is not in the rack', () => {
+    const r = edited((raw) => (raw.cables[0]!.to = 'nas:f0.0'))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/cable/i)
+  })
+
+  it('rejects two cables in one port', () => {
+    expect(edited((raw) => raw.cables.push({ id: 'c4', from: 'udm:f2.0', to: 'sw:f1.1' })).ok).toBe(false)
+  })
+
+  it('rejects a network cable plugged into a power outlet', () => {
+    expect(edited((raw) => (raw.cables[0]!.to = 'pdu:f0.1')).ok).toBe(false)
+  })
+
+  it('rejects damaged cable entries', () => {
+    expect(edited((raw) => (raw.cables[1]!.lengthMm = -5)).ok).toBe(false)
+    expect(edited((raw) => (raw.cables[1]!.lengthMm = 'long')).ok).toBe(false)
+    expect(edited((raw) => delete raw.cables[0]!.from).ok).toBe(false)
+    expect(edited((raw) => (raw.cables[1]!.id = 'c1')).ok).toBe(false)
+    expect(edited((raw) => ((raw as unknown as { cables: unknown }).cables = 'none')).ok).toBe(false)
+  })
+})
+
+describe('saving colours, hole positions and cable settings', () => {
+  const styled: Layout = {
+    rack: { standard: '19', heightU: 12, depthMm: 600, style: 'open', casters: false, color: '#c8c8c8' },
+    placements: [
+      { id: 'udm', itemId: 'ubiquiti-udm-pro', u: 11, side: 'front', hole: 1, color: '#224466' },
+      { id: 'sw', itemId: 'ubiquiti-usw-pro-24', u: 9, side: 'front' },
+    ],
+    cables: [
+      {
+        id: 'c1',
+        from: 'udm:f2.0',
+        to: 'sw:f1.0',
+        have: true,
+        color: '#22aa55',
+        diameterMm: 6,
+        route: 'post',
+      },
+    ],
+  }
+  const edited = (
+    change: (raw: {
+      rack: Record<string, unknown>
+      placements: Record<string, unknown>[]
+      cables: Record<string, unknown>[]
+    }) => void,
+  ) => {
+    const raw = JSON.parse(serializeLayout(styled))
+    change(raw)
+    return parseLayout(JSON.stringify(raw))
+  }
+
+  it('comes back exactly as saved', () => {
+    const r = parseLayout(serializeLayout(styled))
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.layout).toEqual(styled)
+  })
+
+  it('rejects values that cannot be right', () => {
+    expect(edited((raw) => (raw.placements[0]!.hole = 3)).ok).toBe(false)
+    expect(edited((raw) => (raw.placements[0]!.color = 'javascript:alert(1)')).ok).toBe(false)
+    expect(edited((raw) => (raw.rack.color = 'red')).ok).toBe(false)
+    expect(edited((raw) => (raw.cables[0]!.color = '#12')).ok).toBe(false)
+    expect(edited((raw) => (raw.cables[0]!.diameterMm = 400)).ok).toBe(false)
+    expect(edited((raw) => (raw.cables[0]!.route = 'scenic')).ok).toBe(false)
+    expect(edited((raw) => (raw.cables[0]!.have = 'yes')).ok).toBe(false)
+  })
+
+  it('rejects a hole position that makes two devices collide', () => {
+    expect(edited((raw) => (raw.placements[1]!.u = 12)).ok).toBe(false)
+  })
+})

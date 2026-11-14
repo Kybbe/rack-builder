@@ -1,0 +1,173 @@
+[
+  {
+    "itemId": "apc-smt1500rm2u",
+    "front": "elevations/apc-smt1500rm2u.front.png",
+    "rear": "elevations/apc-smt1500rm2u.rear.png",
+    "source": "elevation-images/APC/apc-smt1500rmi2uc.front.png",
+    "approximate": true
+  },
+  {
+    "itemId": "dell-r640",
+    "front": "elevations/dell-r640.front.png",
+    "rear": "elevations/dell-r640.rear.png",
+    "source": "elevation-images/Dell/dell-poweredge-r640.front.png"
+  },
+  {
+    "itemId": "dell-r750",
+    "front": "elevations/dell-r750.front.png",
+    "rear": "elevations/dell-r750.rear.png",
+    "source": "elevation-images/Dell/dell-poweredge-r750.front.png"
+  },
+  {
+    "itemId": "dell-r760",
+    "front": "elevations/dell-r760.front.png",
+    "rear": "elevations/dell-r760.rear.png",
+    "source": "elevation-images/Dell/dell-poweredge-r760.front.png"
+  },
+  {
+    "itemId": "hp-elitedesk-800-g6-mini",
+    "front": "elevations/hp-elitedesk-800-g6-mini.front.png",
+    "rear": "elevations/hp-elitedesk-800-g6-mini.rear.jpeg",
+    "source": "elevation-images/HP/hp-elitedesk-800-g5-mini.front.png",
+    "approximate": true
+  },
+  {
+    "itemId": "hpe-dl360-gen10",
+    "front": "elevations/hpe-dl360-gen10.front.png",
+    "rear": "elevations/hpe-dl360-gen10.rear.png",
+    "source": "elevation-images/HPE/hpe-proliant-dl360-gen10.front.png"
+  },
+  {
+    "itemId": "hpe-dl380-gen10",
+    "front": "elevations/hpe-dl380-gen10.front.png",
+    "rear": "elevations/hpe-dl380-gen10.rear.png",
+    "source": "elevation-images/HPE/hpe-proliant-dl380-gen10.front.png"
+  },
+  {
+    "itemId": "lenovo-m720q",
+    "front": "elevations/lenovo-m720q.front.png",
+    "rear": "elevations/lenovo-m720q.rear.png",
+    "source": "elevation-images/Lenovo/lenovo-thinkcentre-m720q-tiny.front.png"
+  },
+  {
+    "itemId": "lenovo-m920q",
+    "front": "elevations/lenovo-m920q.front.png",
+    "rear": "elevations/lenovo-m920q.rear.png",
+    "source": "elevation-images/Lenovo/lenovo-thinkcentre-m720q-tiny.front.png",
+    "approximate": true
+  },
+  {
+    "itemId": "mikrotik-crs326-24g-2s-rm",
+    "front": "elevations/mikrotik-crs326-24g-2s-rm.front.jpg",
+    "rear": "elevations/mikrotik-crs326-24g-2s-rm.rear.jpg",
+    "source": "elevation-images/MikroTik/mikrotik-crs326-24g-2s-plus-rm.front.jpg"
+  },
+  {
+    "itemId": "minisforum-ms-01",
+    "front": "elevations/minisforum-ms-01.front.jpg",
+    "rear": "elevations/minisforum-ms-01.rear.jpg",
+    "source": "elevation-images/Minisforum/minisforum-ms-01.front.jpg"
+  },
+  {
+    "itemId": "raspberry-pi-4",
+    "front": "elevations/raspberry-pi-4.front.png",
+    "rear": "elevations/raspberry-pi-4.rear.png",
+    "source": "elevation-images/Raspberry Pi/raspberry-pi-rpi4-modb.front.png"
+  },
+  {
+    "itemId": "synology-rs1221-plus",
+    "front": "elevations/synology-rs1221-plus.front.jpeg",
+    "rear": "elevations/synology-rs1221-plus.rear.jpeg",
+    "source": "elevation-images/Synology/synology-rs1221-plus.front.jpeg"
+  },
+  {
+    "itemId": "ubiquiti-ucg-ultra",
+    "front": "elevations/ubiquiti-ucg-ultra.front.png",
+    "rear": "elevations/ubiquiti-ucg-ultra.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-cloud-gateway-ultra.front.png"
+  },
+  {
+    "itemId": "ubiquiti-udm-pro",
+    "front": "elevations/ubiquiti-udm-pro.front.png",
+    "rear": "elevations/ubiquiti-udm-pro.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-dream-machine-pro.front.png"
+  },
+  {
+    "itemId": "ubiquiti-udm-pro-max",
+    "front": "elevations/ubiquiti-udm-pro-max.front.png",
+    "rear": "elevations/ubiquiti-udm-pro-max.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-dream-machine-pro-max.front.png"
+  },
+  {
+    "itemId": "ubiquiti-udm-se",
+    "front": "elevations/ubiquiti-udm-se.front.png",
+    "rear": "elevations/ubiquiti-udm-se.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-dream-machine-pro-special-edition.front.png"
+  },
+  {
+    "itemId": "ubiquiti-unvr",
+    "front": "elevations/ubiquiti-unvr.front.png",
+    "rear": "elevations/ubiquiti-unvr.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-protect-network-video-recorder.front.png"
+  },
+  {
+    "itemId": "ubiquiti-unvr-pro",
+    "front": "elevations/ubiquiti-unvr-pro.front.png",
+    "rear": "elevations/ubiquiti-unvr-pro.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-protect-network-video-recorder-pro.front.png"
+  },
+  {
+    "itemId": "ubiquiti-usp-pdu-pro",
+    "front": "elevations/ubiquiti-usp-pdu-pro.front.png",
+    "rear": "elevations/ubiquiti-usp-pdu-pro.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-usp-pdu-pro.front.png"
+  },
+  {
+    "itemId": "ubiquiti-usw-aggregation",
+    "front": "elevations/ubiquiti-usw-aggregation.front.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-switch-aggregation.front.png"
+  },
+  {
+    "itemId": "ubiquiti-usw-lite-8-poe",
+    "front": "elevations/ubiquiti-usw-lite-8-poe.front.png",
+    "rear": "elevations/ubiquiti-usw-lite-8-poe.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-switch-lite-8-poe.front.png"
+  },
+  {
+    "itemId": "ubiquiti-usw-pro-24",
+    "front": "elevations/ubiquiti-usw-pro-24.front.png",
+    "rear": "elevations/ubiquiti-usw-pro-24.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-switch-24-pro.front.png",
+    "approximate": true
+  },
+  {
+    "itemId": "ubiquiti-usw-pro-24-poe",
+    "front": "elevations/ubiquiti-usw-pro-24-poe.front.png",
+    "rear": "elevations/ubiquiti-usw-pro-24-poe.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-switch-24-pro-poe-gen2.front.png"
+  },
+  {
+    "itemId": "ubiquiti-usw-pro-48",
+    "front": "elevations/ubiquiti-usw-pro-48.front.png",
+    "rear": "elevations/ubiquiti-usw-pro-48.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-switch-48-pro.front.png"
+  },
+  {
+    "itemId": "ubiquiti-usw-pro-48-poe",
+    "front": "elevations/ubiquiti-usw-pro-48-poe.front.png",
+    "rear": "elevations/ubiquiti-usw-pro-48-poe.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-switch-48-pro-poe-gen2.front.png"
+  },
+  {
+    "itemId": "ubiquiti-usw-pro-aggregation",
+    "front": "elevations/ubiquiti-usw-pro-aggregation.front.png",
+    "rear": "elevations/ubiquiti-usw-pro-aggregation.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-switch-pro-aggregation.front.png"
+  },
+  {
+    "itemId": "ubiquiti-usw-pro-max-24-poe",
+    "front": "elevations/ubiquiti-usw-pro-max-24-poe.front.png",
+    "rear": "elevations/ubiquiti-usw-pro-max-24-poe.rear.png",
+    "source": "elevation-images/Ubiquiti/ubiquiti-unifi-switch-pro-max-24-poe.front.png"
+  }
+]

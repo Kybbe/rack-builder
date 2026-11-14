@@ -18,7 +18,7 @@ export const power: CatalogItem[] = [
       { type: 'vent', x: 0.65, w: 0.3 },
     ],
     'https://www.se.com/us/en/product/SMT1500RM2U/apc-smartups-line-interactive-1440va-rackmount-2u-120v-6x-nema-515r-outlets-smartconnect-port-smartslot-avr-lcd/',
-    { color: '#1c1d20' },
+    { color: '#1c1d20', rear: [{ type: 'outlets', count: 6, x: 0.3, w: 0.5 }] },
   ),
   rail(
     'cyberpower-or1500lcdrm1u',
@@ -36,7 +36,7 @@ export const power: CatalogItem[] = [
       { type: 'vent', x: 0.62, w: 0.33 },
     ],
     'https://www.cyberpowersystems.com/product/ups/smart-app-lcd/or1500lcdrm1u/',
-    { color: '#1c1d20' },
+    { color: '#1c1d20', rear: [{ type: 'outlets', count: 6, x: 0.3, w: 0.5 }] },
   ),
   rail(
     'cyberpower-cp1500pfcrm2u',
@@ -54,7 +54,7 @@ export const power: CatalogItem[] = [
       { type: 'vent', x: 0.65, w: 0.3 },
     ],
     'https://www.cyberpowersystems.com/product/ups/pfc-sinewave/cp1500pfcrm2u/',
-    { color: '#1c1d20' },
+    { color: '#1c1d20', rear: [{ type: 'outlets', count: 8, x: 0.3, w: 0.5 }] },
   ),
   rail(
     'pdu-8-19',

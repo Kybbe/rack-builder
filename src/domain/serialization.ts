@@ -1,9 +1,11 @@
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string'
-import type { Configurable, Layout, Placement, Rack, ShelfChild } from './types'
+import type { Cable, Configurable, Layout, Placement, Rack, ShelfChild } from './types'
 import { getItem } from '../catalog'
 import { validateLayout } from './placement'
+import { connectCable } from './cables'
 
-export const SCHEMA_VERSION = 1
+/** 2 added cables. A version 1 file is a version 2 file without any. */
+export const SCHEMA_VERSION = 2
 
 export type ParseResult = { ok: true; layout: Layout } | { ok: false; error: string }
 
@@ -16,6 +18,7 @@ const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 const isInt = (v: unknown, min: number, max: number): v is number =>
   typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max
+const isColor = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
 const isNum = (v: unknown, min: number, max: number): v is number =>
   typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
 
@@ -60,6 +63,10 @@ export function parseLayout(text: string): ParseResult {
     casters: r.casters === true,
   }
   if (typeof r.productId === 'string') rack.productId = r.productId
+  if (r.color !== undefined) {
+    if (!isColor(r.color)) return fail('The rack colour is not a colour.')
+    rack.color = r.color
+  }
 
   if (!Array.isArray(raw.placements)) return fail('The file has no equipment list.')
   const placements: Placement[] = []
@@ -73,6 +80,14 @@ export function parseLayout(text: string): ParseResult {
     if (!isInt(v.u, 1, 60)) return fail(`"${v.itemId}" has no valid rack position.`)
     if (v.side !== 'front' && v.side !== 'rear') return fail(`"${v.itemId}" has no valid side.`)
     const p: Placement = { id: v.id, itemId: v.itemId, u: v.u, side: v.side }
+    if (v.hole !== undefined) {
+      if (v.hole !== 1 && v.hole !== 2) return fail(`"${v.itemId}" has no valid mounting hole.`)
+      p.hole = v.hole
+    }
+    if (v.color !== undefined) {
+      if (!isColor(v.color)) return fail(`"${v.itemId}" has a colour that is not a colour.`)
+      p.color = v.color
+    }
     if (v.config !== undefined) {
       const c = parseConfig(v.config)
       if (!c) return fail(`"${v.itemId}" has settings this version does not understand.`)
@@ -98,7 +113,40 @@ export function parseLayout(text: string): ParseResult {
     (i) => i.code !== 'too-deep' && i.code !== 'needs-adapter' && i.code !== 'child-too-deep',
   )
   if (hard.length) return fail(`The rack in this file does not fit together: ${hard[0]!.message}`)
-  return { ok: true, layout: { rack, placements } }
+  const layout: Layout = { rack, placements }
+  if (raw.cables !== undefined) {
+    if (!Array.isArray(raw.cables)) return fail('The cable list in the file is damaged.')
+    // Plug them in one by one with the same rules as in the app, so a file cannot hold an impossible cable.
+    let cables: Cable[] = []
+    const cableIds = new Set<string>()
+    for (const v of raw.cables) {
+      if (!isObj(v) || typeof v.id !== 'string' || typeof v.from !== 'string' || typeof v.to !== 'string')
+        return fail('A cable entry is damaged.')
+      if (cableIds.has(v.id)) return fail('Two cables in the file have the same id.')
+      cableIds.add(v.id)
+      if (v.lengthMm !== undefined && !isNum(v.lengthMm, 50, 100_000))
+        return fail('A cable in the file has an impossible length.')
+      if (v.have !== undefined && typeof v.have !== 'boolean') return fail('A cable entry is damaged.')
+      if (v.color !== undefined && !isColor(v.color))
+        return fail('A cable has a colour that is not a colour.')
+      if (v.diameterMm !== undefined && !isNum(v.diameterMm, 1, 30))
+        return fail('A cable in the file has an impossible thickness.')
+      if (v.route !== undefined && v.route !== 'direct' && v.route !== 'post')
+        return fail('A cable in the file is routed in a way this version does not know.')
+      const r = connectCable(rack, placements, cables, v.from, v.to, {
+        id: v.id,
+        ...(v.lengthMm !== undefined ? { lengthMm: v.lengthMm } : {}),
+        ...(v.have !== undefined ? { have: v.have } : {}),
+        ...(v.color !== undefined ? { color: v.color } : {}),
+        ...(v.diameterMm !== undefined ? { diameterMm: v.diameterMm } : {}),
+        ...(v.route !== undefined ? { route: v.route } : {}),
+      })
+      if (!r.ok) return fail(`A cable in this file cannot be plugged in: ${r.error}`)
+      cables = r.cables
+    }
+    if (cables.length) layout.cables = cables
+  }
+  return { ok: true, layout }
 }
 
 export function toShareHash(layout: Layout): string {

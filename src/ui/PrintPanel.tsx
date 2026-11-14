@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useStore } from '../state/store'
-import { PRINTERS, advisePrint } from '../domain/printAdvisor'
+import { FASTENINGS, PRINTERS, advisePrint, type Fastening } from '../domain/printAdvisor'
 import { Field, Len, Picker, ULabel } from './primitives'
 
 export function PrintPanel() {
@@ -9,7 +9,11 @@ export function PrintPanel() {
   const printerId = useStore((s) => s.printerId)
   const set = useStore((s) => s.set)
   const printer = PRINTERS.find((p) => p.id === printerId) ?? PRINTERS[0]!
-  const a = useMemo(() => advisePrint(rack, placements, printer), [rack, placements, printer])
+  const fastening = useStore((s) => s.fastening)
+  const a = useMemo(
+    () => advisePrint(rack, placements, printer, { fastening }),
+    [rack, placements, printer, fastening],
+  )
   const whole = PRINTERS.filter((p) => advisePrint(rack, [], p).rail.parts === 1).map((p) => p.name)
 
   return (
@@ -108,6 +112,15 @@ export function PrintPanel() {
       </table>
 
       <h3>Hardware</h3>
+      <Field label="Threads in the rails: pick one">
+        <Picker
+          label="How the rails get their threads"
+          value={fastening}
+          onChange={(v) => set({ fastening: v as Fastening })}
+          options={FASTENINGS.map((f) => ({ value: f.id, label: f.name }))}
+        />
+      </Field>
+      <p className="note">{FASTENINGS.find((f) => f.id === fastening)?.blurb}</p>
       <table className="table table--hw">
         <tbody>
           {a.hardware.map((h) => (

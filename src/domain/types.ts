@@ -9,6 +9,8 @@ export interface Rack {
   depthMm: number
   style: RackStyle
   casters: boolean
+  /** Frame colour picked by the user. */
+  color?: string
   /** Set when the rack was picked from the catalog of real racks. */
   productId?: string
 }
@@ -59,6 +61,8 @@ export interface CatalogItem {
   /** Default settings for parts whose size follows from a choice (fans, drive bays). */
   configurable?: Configurable
   features: FrontFeature[]
+  /** What is on the back, when it matters for cabling. Left out, servers, mini PCs and NAS boxes get a default. */
+  rear?: FrontFeature[]
   color?: string
   sourceUrl: string
   /** true when the dimensions were checked against the linked source, false when they are from memory. */
@@ -75,7 +79,16 @@ export interface RackProduct {
   /** Usable mounting depth. */
   depthMm: number
   style: RackStyle
-  outerMm: { w: number; h: number; d: number }
+  /** Left out for printed designs whose outer size the author does not state. */
+  outerMm?: { w: number; h: number; d: number }
+  /** Other heights the same design comes in (modular racks). */
+  heights?: number[]
+  /** A design you print yourself instead of buying. */
+  printed?: {
+    author: string
+    licence: string
+    fastening: 'inserts' | 'captive-nuts' | 'cage-nuts' | 'printed-threads'
+  }
   casters?: boolean
   sourceUrl: string
   verified: boolean
@@ -94,6 +107,10 @@ export interface Placement {
   /** Lowest rack unit the device occupies. U1 is the bottom of the rack. */
   u: number
   side: Side
+  /** Mounted this many holes above the bottom of unit `u`: 1 or 2. Left out when on the unit grid. */
+  hole?: 1 | 2
+  /** A colour picked by the user instead of the catalog colour. */
+  color?: string
   config?: Configurable
   children?: ShelfChild[]
   /** Force the CAD look for this device even in realistic mode. */
@@ -116,7 +133,26 @@ export interface Issue {
   placementId?: string
 }
 
+/** A cable between two ports. Port ids are worked out from the equipment, see domain/cables. */
+export interface Cable {
+  id: string
+  from: string
+  to: string
+  /** The length the user picked. Left out, the shortest stock length that reaches is used. */
+  lengthMm?: number
+  /** Whether the user already has this cable. Left out, power cables count as included with the device. */
+  have?: boolean
+  color?: string
+  diameterMm?: number
+  /** How this cable runs, when it differs from the setting for the whole rack. */
+  route?: CableRouting
+}
+
+/** 'direct' goes straight across the face. 'post' goes to the nearer rack post and follows it. */
+export type CableRouting = 'direct' | 'post'
+
 export interface Layout {
   rack: Rack
   placements: Placement[]
+  cables?: Cable[]
 }

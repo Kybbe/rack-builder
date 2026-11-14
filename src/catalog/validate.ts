@@ -36,6 +36,10 @@ export function validateCatalog(items: CatalogItem[], racks: RackProduct[]): str
       out.push(`${r.id}: rack height must be 1U to 60U`)
       continue
     }
+    if (!r.outerMm) {
+      if (!r.printed) out.push(`${r.id}: a rack you buy needs its outer size`)
+      continue
+    }
     if (r.outerMm.h < r.heightU * U_MM)
       out.push(`${r.id}: outer height is less than its ${r.heightU}U of rails`)
     if (r.outerMm.w < RACK_STANDARDS[r.standard].panelWidthMm)

@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type {
+  Cable,
+  CableRouting,
   Configurable,
   Issue,
   Layout,
@@ -23,12 +25,15 @@ import {
 import { addToShelf, removeFromShelf, setChildOrientation } from '../domain/shelf'
 import type { DragSource, DropTarget } from '../domain/geometry'
 import type { Wanted } from '../domain/planner'
+import { WALL, connectCable, portsOf, pruneCables, updateCable, type CablePatch } from '../domain/cables'
+import type { Fastening } from '../domain/printAdvisor'
 import { CATALOG, getItem, RACK_PRODUCTS } from '../catalog'
 
 export type ViewPreset = 'iso' | 'front' | 'rear' | 'side' | 'top'
 export type Look = 'cad' | 'real'
 export type Theme = 'dark' | 'light'
-export type Tab = 'build' | 'plan' | 'print'
+export type Tab = 'build' | 'cables' | 'plan' | 'print'
+export type PlugResult = { ok: true } | { ok: false; error: string }
 
 const HARD: Issue['code'][] = [
   'out-of-bounds',
@@ -53,6 +58,7 @@ const refused = (message: string, code: Issue['code'] = 'overlap'): CheckResult 
 export interface State {
   rack: Rack
   placements: Placement[]
+  cables: Cable[]
   units: UnitSystem
   look: Look
   theme: Theme
@@ -66,9 +72,20 @@ export interface State {
   headroomPct: number
   planStandard: Rack['standard']
   printerId: string
+  /** How to thread a printed rail: one choice for the whole print list. */
+  fastening: Fastening
+  /** Whether long cables go along the posts or straight across. */
+  cableRouting: CableRouting
+  /** Lets devices land on any mounting hole instead of whole units. */
+  holeSnap: boolean
   // not saved
+  /** A copied device, pasted with paste(). */
+  clipboard: Placement | null
   paletteOpen: boolean
   selectedId: string | null
+  /** The port a cable was started from, while its other end is not plugged in yet. */
+  pendingPort: string | null
+  selectedCableId: string | null
   view: { preset: ViewPreset; nonce: number }
   drag: DragSource | null
   ghost: DropTarget | null
@@ -76,9 +93,15 @@ export interface State {
 
   setRack: (patch: Partial<Rack>) => CheckResult
   applyRackProduct: (productId: string) => CheckResult
-  add: (itemId: string, u: number, side: Side, config?: Configurable) => CheckResult & { id?: string }
+  add: (
+    itemId: string,
+    u: number,
+    side: Side,
+    config?: Configurable,
+    hole?: number,
+  ) => CheckResult & { id?: string }
   addAuto: (itemId: string) => CheckResult & { id?: string }
-  move: (id: string, u: number, side: Side) => CheckResult
+  move: (id: string, u: number, side: Side, hole?: number) => CheckResult
   remove: (id: string) => void
   duplicate: (id: string) => CheckResult
   setConfig: (id: string, config: Configurable) => CheckResult
@@ -90,6 +113,19 @@ export interface State {
   removeChild: (shelfId: string, childId: string) => void
   setChildOrientation: (shelfId: string, childId: string, o: ShelfChild['orientation']) => CheckResult
   drop: (target: DropTarget, src: DragSource) => CheckResult
+  /** A click on a port while cabling: starts a cable, finishes it, or selects the cable already in that port. */
+  clickPort: (portId: string) => PlugResult
+  plug: (from: string, to: string) => PlugResult
+  removeCable: (id: string) => void
+  setCableLength: (id: string, lengthMm: number | undefined) => void
+  updateCable: (id: string, patch: CablePatch) => void
+  setPlacementColor: (id: string, color: string | undefined) => void
+  copy: (id: string) => boolean
+  paste: () => CheckResult
+  /** Back to an empty default rack. Undoable. */
+  reset: () => void
+  selectCable: (id: string | null) => void
+  cancelCable: () => void
   load: (layout: Layout) => void
   clear: () => void
   undo: () => boolean
@@ -114,6 +150,9 @@ export interface State {
         | 'headroomPct'
         | 'planStandard'
         | 'printerId'
+        | 'fastening'
+        | 'cableRouting'
+        | 'holeSnap'
         | 'paletteOpen'
       >
     >,
@@ -123,22 +162,24 @@ export interface State {
 export const useStore = create<State>()(
   persist(
     (set, get) => {
+      const snapshot = () => {
+        const { rack, placements, cables, past } = get()
+        return [...past.slice(-49), { rack, placements, cables }]
+      }
+
       /** Apply a change to the equipment list and remember the old state for undo. */
       const commit = (r: CheckResult & { placements: Placement[] }): CheckResult => {
         if (r.ok && r.placements !== get().placements) {
-          const { rack, placements, past } = get()
-          set({ placements: r.placements, past: [...past.slice(-49), { rack, placements }] })
+          const { rack, cables } = get()
+          set({ placements: r.placements, cables: pruneCables(rack, r.placements, cables), past: snapshot() })
         }
         return { ok: r.ok, errors: r.errors, warnings: r.warnings }
-      }
-      const snapshot = () => {
-        const { rack, placements, past } = get()
-        return [...past.slice(-49), { rack, placements }]
       }
 
       return {
         rack: DEFAULT_RACK,
         placements: [],
+        cables: [],
         units: 'mm',
         look: 'real',
         theme: 'dark',
@@ -152,8 +193,14 @@ export const useStore = create<State>()(
         headroomPct: 25,
         planStandard: DEFAULT_RACK.standard,
         printerId: 'bambu-p1s',
+        fastening: 'inserts',
+        cableRouting: 'direct',
+        holeSnap: false,
+        clipboard: null,
         paletteOpen: false,
         selectedId: null,
+        pendingPort: null,
+        selectedCableId: null,
         view: { preset: 'iso', nonce: 0 },
         drag: null,
         ghost: null,
@@ -162,9 +209,14 @@ export const useStore = create<State>()(
         setRack: (patch) => {
           const next: Rack = { ...get().rack, ...patch }
           // A hand-edited rack is no longer the bought product, unless the product itself was just chosen.
-          if (!('productId' in patch) && (patch.standard || patch.heightU || patch.depthMm || patch.style))
-            delete next.productId
+          if (!('productId' in patch) && (patch.standard || patch.heightU || patch.depthMm || patch.style)) {
+            // A modular design is still that design at another height it comes in.
+            const product = RACK_PRODUCTS.find((r) => r.id === next.productId)
+            const onlyHeight = !patch.standard && !patch.depthMm && !patch.style
+            if (!(onlyHeight && product?.heights?.includes(next.heightU))) delete next.productId
+          }
           if (next.style === 'wall') next.casters = false
+          if (!next.color) delete next.color
           const blocking = validateLayout(next, get().placements).filter((i) => HARD.includes(i.code))
           if (blocking.length) {
             const n = new Set(blocking.map((b) => b.placementId)).size
@@ -181,6 +233,7 @@ export const useStore = create<State>()(
         applyRackProduct: (productId) => {
           const p = RACK_PRODUCTS.find((r) => r.id === productId)
           if (!p) return refused('Unknown rack.')
+          if (p.printed) set({ fastening: p.printed.fastening })
           return get().setRack({
             standard: p.standard,
             heightU: p.heightU,
@@ -191,7 +244,7 @@ export const useStore = create<State>()(
           })
         },
 
-        add: (itemId, u, side, config) => {
+        add: (itemId, u, side, config, hole) => {
           const item = getItem(itemId)
           const id = newId()
           const r = commit(
@@ -200,10 +253,11 @@ export const useStore = create<State>()(
               itemId,
               u,
               side,
+              ...(hole === 1 || hole === 2 ? { hole } : {}),
               ...(config || item?.configurable ? { config: config ?? item!.configurable } : {}),
             }),
           )
-          if (r.ok) set({ selectedId: id })
+          if (r.ok) set({ selectedId: id, selectedCableId: null })
           return { ...r, id: r.ok ? id : undefined }
         },
 
@@ -217,7 +271,7 @@ export const useStore = create<State>()(
               if (!getItem(p.itemId)?.isShelf) continue
               const r = addToShelf(rack, placements, p.id, itemId)
               if (r.ok) {
-                set({ selectedId: p.id })
+                set({ selectedId: p.id, selectedCableId: null })
                 return commit(r)
               }
             }
@@ -234,13 +288,16 @@ export const useStore = create<State>()(
           return get().add(itemId, u, 'front')
         },
 
-        move: (id, u, side) => commit(movePlacement(get().rack, get().placements, id, u, side)),
+        move: (id, u, side, hole) => commit(movePlacement(get().rack, get().placements, id, u, side, hole)),
 
         remove: (id) => {
           const { placements, selectedId } = get()
           if (!placements.some((p) => p.id === id)) return
+          const left = removePlacement(placements, id)
           set({
-            placements: removePlacement(placements, id),
+            placements: left,
+            cables: pruneCables(get().rack, left, get().cables),
+            pendingPort: null,
             past: snapshot(),
             selectedId: selectedId === id ? null : selectedId,
           })
@@ -259,7 +316,7 @@ export const useStore = create<State>()(
           const u = firstFreeU(rack, placements, copy)
           if (u === null) return refused('No free space for a copy.')
           const r = commit(addPlacement(rack, placements, { ...copy, u }))
-          if (r.ok) set({ selectedId: copy.id })
+          if (r.ok) set({ selectedId: copy.id, selectedCableId: null })
           return r
         },
 
@@ -297,14 +354,21 @@ export const useStore = create<State>()(
               : firstFreeU(rack, placements, candidate)
           if (at === null) return refused(`No free space for a shelf with ${item.name} on it.`)
           const r = commit(addPlacement(rack, placements, { ...candidate, u: at }))
-          if (r.ok) set({ selectedId: candidate.id })
+          if (r.ok) set({ selectedId: candidate.id, selectedCableId: null })
           return r
         },
 
         setSideWidth: (px) => set({ sideWidth: Math.round(Math.min(720, Math.max(260, px))) }),
 
-        removeChild: (shelfId, childId) =>
-          set({ placements: removeFromShelf(get().placements, shelfId, childId), past: snapshot() }),
+        removeChild: (shelfId, childId) => {
+          const left = removeFromShelf(get().placements, shelfId, childId)
+          set({
+            placements: left,
+            cables: pruneCables(get().rack, left, get().cables),
+            pendingPort: null,
+            past: snapshot(),
+          })
+        },
 
         setChildOrientation: (shelfId, childId, o) =>
           commit(setChildOrientation(get().rack, get().placements, shelfId, childId, o)),
@@ -313,27 +377,148 @@ export const useStore = create<State>()(
           if (!target.ok) return { ok: false, errors: target.issues, warnings: [] }
           if (target.kind === 'shelf' && target.shelfId) {
             const r = get().addChild(target.shelfId, src.itemId)
-            if (r.ok) set({ selectedId: target.shelfId })
+            if (r.ok) set({ selectedId: target.shelfId, selectedCableId: null })
             return r
           }
-          if (src.moveId) return get().move(src.moveId, target.u, target.side)
-          return get().add(src.itemId, target.u, target.side, src.config)
+          if (src.moveId) return get().move(src.moveId, target.u, target.side, target.hole)
+          return get().add(src.itemId, target.u, target.side, src.config, target.hole)
         },
 
-        load: (layout) =>
-          set({ rack: layout.rack, placements: layout.placements, past: snapshot(), selectedId: null }),
+        clickPort: (portId) => {
+          const { pendingPort, cables } = get()
+          if (pendingPort === portId) {
+            set({ pendingPort: null })
+            return { ok: true }
+          }
+          if (pendingPort) return get().plug(pendingPort, portId)
+          const taken = portId === WALL ? undefined : cables.find((c) => c.from === portId || c.to === portId)
+          if (taken) {
+            set({ selectedCableId: taken.id, selectedId: null })
+            return { ok: true }
+          }
+          if (portId !== WALL && !portsOf(get().rack, get().placements).some((p) => p.id === portId))
+            return { ok: false, error: 'That port is no longer there.' }
+          set({ pendingPort: portId, selectedCableId: null })
+          return { ok: true }
+        },
 
-        clear: () => set({ placements: [], past: snapshot(), selectedId: null }),
+        plug: (from, to) => {
+          const { rack, placements, cables } = get()
+          const r = connectCable(rack, placements, cables, from, to)
+          if (!r.ok) return r
+          set({
+            cables: r.cables,
+            past: snapshot(),
+            pendingPort: null,
+            selectedCableId: r.cable.id,
+            selectedId: null,
+          })
+          return { ok: true }
+        },
+
+        removeCable: (id) => {
+          const { cables, selectedCableId } = get()
+          if (!cables.some((c) => c.id === id)) return
+          set({
+            cables: cables.filter((c) => c.id !== id),
+            past: snapshot(),
+            selectedCableId: selectedCableId === id ? null : selectedCableId,
+          })
+        },
+
+        setCableLength: (id, lengthMm) => get().updateCable(id, { lengthMm }),
+
+        updateCable: (id, patch) => set({ cables: updateCable(get().cables, id, patch), past: snapshot() }),
+
+        setPlacementColor: (id, color) =>
+          set({
+            placements: get().placements.map((p) => {
+              if (p.id !== id) return p
+              const next = { ...p }
+              if (color) next.color = color
+              else delete next.color
+              return next
+            }),
+            past: snapshot(),
+          }),
+
+        copy: (id) => {
+          const p = get().placements.find((x) => x.id === id)
+          if (p) set({ clipboard: p })
+          return !!p
+        },
+
+        paste: () => {
+          const { clipboard, rack, placements } = get()
+          if (!clipboard) return refused('Nothing copied yet. Select a device and copy it first.')
+          const copy: Placement = {
+            ...clipboard,
+            id: newId(),
+            children: clipboard.children?.map((c) => ({ ...c, id: newId() })),
+          }
+          if (!copy.children) delete copy.children
+          delete copy.hole
+          const u = firstFreeU(rack, placements, copy)
+          if (u === null)
+            return refused(`No free space for another ${getItem(copy.itemId)?.name ?? 'device'}.`)
+          const r = commit(addPlacement(rack, placements, { ...copy, u }))
+          if (r.ok) set({ selectedId: copy.id, selectedCableId: null })
+          return r
+        },
+
+        reset: () =>
+          set({
+            rack: { ...DEFAULT_RACK },
+            placements: [],
+            cables: [],
+            past: snapshot(),
+            selectedId: null,
+            pendingPort: null,
+            selectedCableId: null,
+          }),
+
+        selectCable: (selectedCableId) =>
+          set(selectedCableId ? { selectedCableId, selectedId: null } : { selectedCableId }),
+        cancelCable: () => set({ pendingPort: null }),
+
+        load: (layout) =>
+          set({
+            rack: layout.rack,
+            placements: layout.placements,
+            cables: layout.cables ?? [],
+            past: snapshot(),
+            selectedId: null,
+            pendingPort: null,
+            selectedCableId: null,
+          }),
+
+        clear: () =>
+          set({
+            placements: [],
+            cables: [],
+            past: snapshot(),
+            selectedId: null,
+            pendingPort: null,
+            selectedCableId: null,
+          }),
 
         undo: () => {
           const { past } = get()
           const last = past[past.length - 1]
           if (!last) return false
-          set({ rack: last.rack, placements: last.placements, past: past.slice(0, -1), selectedId: null })
+          set({
+            rack: last.rack,
+            placements: last.placements,
+            cables: last.cables ?? [],
+            past: past.slice(0, -1),
+            selectedId: null,
+            pendingPort: null,
+            selectedCableId: null,
+          })
           return true
         },
 
-        select: (selectedId) => set({ selectedId }),
+        select: (selectedId) => set(selectedId ? { selectedId, selectedCableId: null } : { selectedId }),
         setView: (preset) => set({ view: { preset, nonce: get().view.nonce + 1 } }),
         setDrag: (drag) => set(drag ? { drag } : { drag: null, ghost: null }),
         setGhost: (ghost) => set({ ghost }),
@@ -358,6 +543,7 @@ export const useStore = create<State>()(
       partialize: (s) => ({
         rack: s.rack,
         placements: s.placements,
+        cables: s.cables,
         units: s.units,
         look: s.look,
         theme: s.theme,
@@ -371,6 +557,9 @@ export const useStore = create<State>()(
         headroomPct: s.headroomPct,
         planStandard: s.planStandard,
         printerId: s.printerId,
+        fastening: s.fastening,
+        cableRouting: s.cableRouting,
+        holeSnap: s.holeSnap,
       }),
     },
   ),

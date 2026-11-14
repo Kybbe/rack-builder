@@ -1178,3 +1178,157 @@ code {
     transition: none !important;
   }
 }
+
+/* cables */
+.cables {
+  list-style: none;
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.cable {
+  background: var(--surface);
+  padding: 7px 8px;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  border-left: 2px solid transparent;
+}
+.cable[data-selected] {
+  border-left-color: var(--accent);
+  background: var(--surface-2);
+}
+.cable--todo {
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+}
+.cable__ends {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: baseline;
+  line-height: 1.35;
+}
+.cable__swatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: #4f8fd0;
+  transform: translateY(-3px);
+}
+.cable__swatch[data-kind='sfp'] {
+  background: #cfa93a;
+}
+.cable__swatch[data-kind='power'] {
+  background: var(--text-2);
+}
+.cable__meta {
+  display: grid;
+  grid-template-columns: 1fr minmax(96px, auto) auto;
+  gap: 6px;
+  align-items: center;
+  padding-left: 22px;
+  font-size: 11px;
+}
+.cable-pending {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r);
+  font-size: 12px;
+}
+.cable-label,
+.port-tip {
+  font: 11px var(--font-mono);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  padding: 3px 6px;
+  border-radius: 2px;
+  display: grid;
+  width: max-content;
+  max-width: 280px;
+  pointer-events: none;
+}
+.port-tip {
+  transform: translateY(-100%);
+}
+.port-tip b {
+  font: 500 11px var(--font-ui);
+}
+.port-tip span,
+.cable-label span {
+  color: var(--text-2);
+}
+.cable-label {
+  border-color: var(--accent);
+}
+.cable-label--bad {
+  border-color: var(--danger);
+}
+.cable-label--bad span {
+  color: var(--danger);
+}
+
+/* colour swatches */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.swatch[aria-pressed='true'] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.swatch--none {
+  background: linear-gradient(
+    to top right,
+    transparent 46%,
+    var(--text-3) 46%,
+    var(--text-3) 54%,
+    transparent 54%
+  );
+}
+.swatch--custom {
+  background: conic-gradient(#c0392b, #d9a441, #2e8b57, #2f6fb5, #7d4cc2, #c0392b);
+}
+.swatch--custom input {
+  position: absolute;
+  inset: -4px;
+  width: 30px;
+  height: 30px;
+  opacity: 0;
+  cursor: pointer;
+}
+.cable__have {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.cable__meta {
+  grid-template-columns: 1fr minmax(96px, auto) auto auto;
+}
+.dialog .btn-row {
+  justify-self: end;
+}

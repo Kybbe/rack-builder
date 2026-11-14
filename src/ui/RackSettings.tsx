@@ -4,7 +4,7 @@ import { useStore } from '../state/store'
 import { RACK_PRODUCTS } from '../catalog'
 import { STANDARD_HEIGHTS, formatU } from '../domain/units'
 import type { Rack } from '../domain/types'
-import { Field, Len, Picker, Segmented, Slider, Switch, ULabel } from './primitives'
+import { ColorField, Field, Len, Picker, Segmented, Slider, Switch, ULabel } from './primitives'
 
 const CUSTOM = '__custom'
 
@@ -21,7 +21,11 @@ export function RackSettings() {
     if (!r.ok) toast.error(r.errors[0]?.message ?? 'That rack size does not work.')
     return r.ok
   }
-  const heights = [...new Set([...STANDARD_HEIGHTS[rack.standard], rack.heightU])].sort((a, b) => a - b)
+  const product = RACK_PRODUCTS.find((p) => p.id === rack.productId)
+  // A modular printed design offers its own heights; anything else the heights racks are sold in.
+  const heights = [...new Set([...(product?.heights ?? STANDARD_HEIGHTS[rack.standard]), rack.heightU])].sort(
+    (a, b) => a - b,
+  )
   const depthRange = rack.standard === '10' ? { min: 100, max: 450 } : { min: 250, max: 1200 }
 
   return (
@@ -106,7 +110,10 @@ export function RackSettings() {
           />
         </Field>
       </div>
-      <Field label="Or start from a real rack">
+      <Field label="Frame colour">
+        <ColorField label="Frame colour" value={rack.color} onChange={(color) => apply({ color })} />
+      </Field>
+      <Field label="Or start from a real rack or a printed design">
         <Picker
           label="Real rack"
           value={rack.productId ?? CUSTOM}
@@ -120,11 +127,20 @@ export function RackSettings() {
             ...RACK_PRODUCTS.map((p) => ({
               value: p.id,
               label: p.name,
-              hint: `${p.standard}" · ${p.heightU}U`,
+              hint: `${p.printed ? 'print · ' : ''}${p.standard}" · ${p.heightU}U`,
             })),
           ]}
         />
       </Field>
+      {product?.printed && (
+        <p className="note">
+          Printed design by {product.printed.author} ({product.printed.licence}).{' '}
+          <a href={product.sourceUrl} target="_blank" rel="noreferrer">
+            Get the files
+          </a>
+          . {product.note}
+        </p>
+      )}
     </section>
   )
 }

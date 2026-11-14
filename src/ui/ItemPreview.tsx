@@ -2,7 +2,7 @@ import { memo } from 'react'
 import type { CatalogItem, Rack } from '../domain/types'
 import { driveGrid, resolvePlacement } from '../domain/placement'
 import { RACK_STANDARDS, U_MM } from '../domain/units'
-import { featureRects, type Rect } from '../three/features'
+import { featureRects, type Rect } from '../domain/features'
 
 const TONE: Record<Rect['tone'], string> = {
   hole: 'var(--pv-hole)',

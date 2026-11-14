@@ -1,7 +1,7 @@
 import type { CatalogItem, Category, FrontFeature, RackStandard } from '../domain/types'
 
 type Dims = [widthMm: number, heightMm: number, depthMm: number]
-type Extra = Partial<Pick<CatalogItem, 'isShelf' | 'configurable' | 'color' | 'verified' | 'note'>>
+type Extra = Partial<Pick<CatalogItem, 'isShelf' | 'configurable' | 'color' | 'verified' | 'note' | 'rear'>>
 
 /** Equipment with rack ears. */
 export function rail(

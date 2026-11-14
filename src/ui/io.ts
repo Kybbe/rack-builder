@@ -5,8 +5,8 @@ import { fromShareHash, parseLayout, serializeLayout, toShareHash } from '../dom
 const HASH_KEY = '#r='
 
 export function exportLayout() {
-  const { rack, placements } = useStore.getState()
-  const blob = new Blob([serializeLayout({ rack, placements })], { type: 'application/json' })
+  const { rack, placements, cables } = useStore.getState()
+  const blob = new Blob([serializeLayout({ rack, placements, cables })], { type: 'application/json' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = `rack-${rack.standard}in-${rack.heightU}u.json`
@@ -42,8 +42,8 @@ export function importLayoutFile() {
 }
 
 export async function copyShareLink() {
-  const { rack, placements } = useStore.getState()
-  const url = `${location.origin}${location.pathname}${HASH_KEY}${toShareHash({ rack, placements })}`
+  const { rack, placements, cables } = useStore.getState()
+  const url = `${location.origin}${location.pathname}${HASH_KEY}${toShareHash({ rack, placements, cables })}`
   try {
     await navigator.clipboard.writeText(url)
     toast.success('Link copied', { description: 'Anyone with the link opens this rack.' })

@@ -30,9 +30,15 @@ a guessed depth is worse than no plan. `research/` holds the raw notes behind th
 `src/catalog/catalog.test.ts` rejects entries that cannot be right (taller than their rack units, wider than the rack
 opening), so run the tests after adding one.
 
-## Real 3D models
+## Photos and real 3D models
 
-Devices are drawn from their catalog dimensions. To show a real model instead, put a `.glb` in `public/models/` and
-add `{ "itemId", "file", "title", "author", "licence", "sourceUrl" }` to `src/catalog/models.json`. The model is
-stretched to the catalog dimensions, so it can never disagree with the fit checks, and it is listed under
-File → 3D model credits. Only add models whose licence allows redistribution (CC0, CC BY, MIT).
+Devices are drawn from their catalog dimensions. In the realistic look a device shows a front and rear photo when
+`src/catalog/elevations.json` lists one for it. The photos in `public/elevations/` come from the NetBox device-type
+library, which is CC0. A photo is fitted to the height of the face, so it only looks right when it is cropped to the
+device. The port positions in the catalog are what cables plug into: when you add a photo, check that the ports of
+that item line up with it.
+
+To show a real model instead, put a `.glb` in `public/models/` and add
+`{ "itemId", "file", "title", "author", "licence", "sourceUrl" }` to `src/catalog/models.json`. The model is squeezed
+into the catalog dimensions so it can never disagree with the fit checks, and it is credited under File → Credits.
+Only add models whose licence allows redistribution (CC0, CC BY, MIT). GrabCAD files may not be shipped.

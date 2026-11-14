@@ -128,7 +128,7 @@ export function planRack(wanted: Wanted[], opts: PlanOptions): Plan {
   const racks: RackSuggestion[] =
     usedU === 0
       ? []
-      : RACK_PRODUCTS.filter((r) => r.standard === std && r.heightU >= requiredU)
+      : RACK_PRODUCTS.filter((r) => !r.printed && r.standard === std && r.heightU >= requiredU)
           .sort((a, b) => a.heightU - b.heightU || a.depthMm - b.depthMm)
           .slice(0, 8)
           .map((product) => ({

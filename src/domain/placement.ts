@@ -22,6 +22,20 @@ const DRIVE = {
   '2.5': { w: 69.85, h: 15, l: 100.5, kg: 0.12, watts: 3 },
 } as const
 
+/** How far above the bottom of its unit a device sits when it is mounted 0, 1 or 2 holes up (EIA-310 hole pattern). */
+export const HOLE_SHIFT_MM = [0, 15.875, 31.75] as const
+
+/** Bottom edge of a placement above the bottom edge of U1, in mm. */
+export function bottomMm(p: Pick<Placement, 'u' | 'hole'>): number {
+  return (p.u - 1) * U_MM + HOLE_SHIFT_MM[p.hole ?? 0]
+}
+
+/** The position one mounting hole up (+1) or down (-1). */
+export function stepHole(p: { u: number; hole?: number }, dir: 1 | -1): { u: number; hole: 0 | 1 | 2 } {
+  const k = (p.u - 1) * 3 + (p.hole ?? 0) + dir
+  return { u: Math.floor(k / 3) + 1, hole: (((k % 3) + 3) % 3) as 0 | 1 | 2 }
+}
+
 export function effectiveStandard(item: CatalogItem, rack: Rack): RackStandard {
   return item.standard === 'both' ? rack.standard : item.standard
 }
@@ -180,8 +194,10 @@ export function checkPlacement(
     })
   }
   const from = candidate.u
-  const to = candidate.u + res.heightU - 1
-  if (!Number.isInteger(from) || from < 1 || to > rack.heightU) {
+  const EPS = 0.01
+  const bottom = bottomMm(candidate)
+  const topMm = bottom + res.heightU * U_MM
+  if (!Number.isInteger(from) || from < 1 || topMm > rack.heightU * U_MM + EPS) {
     errors.push({
       code: 'out-of-bounds',
       message: `${item.name} (${res.heightU}U) does not fit at U${from}: the rack has U1 to U${rack.heightU}.`,
@@ -200,8 +216,8 @@ export function checkPlacement(
     const or = resolvePlacement(o, rack)
     if (!or) continue
     const oFrom = o.u
-    const oTo = o.u + or.heightU - 1
-    if (to < oFrom || from > oTo) continue
+    const oBottom = bottomMm(o)
+    if (topMm <= oBottom + EPS || bottom >= oBottom + or.heightU * U_MM - EPS) continue
     const sameSide = o.side === candidate.side
     // Front and rear devices in the same unit only collide when together they are deeper than the rack.
     if (sameSide || or.depthMm + res.depthMm > rack.depthMm) {
@@ -296,10 +312,14 @@ export function movePlacement(
   id: string,
   u: number,
   side: Side,
+  hole?: number,
 ): ChangeResult {
   const current = placements.find((p) => p.id === id)
   if (!current) return { ok: false, errors: [], warnings: [], placements }
-  const moved = { ...current, u, side }
+  const moved: Placement = { ...current, u, side }
+  // A move lands on the unit grid unless a hole is asked for.
+  if (hole === 1 || hole === 2) moved.hole = hole
+  else delete moved.hole
   const r = checkPlacement(rack, placements, moved, { ignoreId: id })
   return { ...r, placements: r.ok ? placements.map((p) => (p.id === id ? moved : p)) : placements }
 }

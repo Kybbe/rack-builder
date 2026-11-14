@@ -3,12 +3,21 @@ import { Drawer } from 'vaul'
 import { toast } from 'sonner'
 import { useStore } from '../state/store'
 import { getItem } from '../catalog'
-import { resolvePlacement } from '../domain/placement'
+import { resolvePlacement, stepHole } from '../domain/placement'
+import {
+  CABLE_NAME,
+  STOCK_LENGTHS,
+  WALL,
+  cableLengthText,
+  cableReport,
+  type CableRow,
+} from '../domain/cables'
+import { CABLE_DIAMETER } from '../three/Cables'
 import { shelfLayout } from '../domain/shelf'
 import type { Configurable, Placement } from '../domain/types'
 import { hasModel } from '../three/Device'
 import { report } from './feedback'
-import { Field, Len, Picker, Segmented, Stepper, Switch, ULabel } from './primitives'
+import { ColorField, Field, Len, Picker, Segmented, Stepper, Switch, ULabel } from './primitives'
 
 const FAN_SIZES = [40, 60, 80, 92, 120, 140]
 
@@ -129,6 +138,7 @@ function ConfigEditor({ p, cfg, maxCount }: { p: Placement; cfg: Configurable; m
 function Body({ p }: { p: Placement }) {
   const rack = useStore((s) => s.rack)
   const look = useStore((s) => s.look)
+  const holeSnap = useStore((s) => s.holeSnap)
   const st = useStore.getState
   const res = resolvePlacement(p, rack)
   if (!res) return null
@@ -136,6 +146,12 @@ function Body({ p }: { p: Placement }) {
   const cfg = item.configurable ? (p.config ?? item.configurable) : undefined
   const layout = item.isShelf ? shelfLayout(p, rack) : null
   const top = p.u + res.heightU - 1
+  const off = p.hole ? ` +${p.hole} hole${p.hole > 1 ? 's' : ''}` : ''
+  const step = (dir: 1 | -1) => {
+    if (!holeSnap) return report(st().move(p.id, p.u + dir, p.side, p.hole))
+    const next = stepHole(p, dir)
+    return report(st().move(p.id, next.u, p.side, next.hole))
+  }
 
   return (
     <div className="inspector__body">
@@ -158,7 +174,10 @@ function Body({ p }: { p: Placement }) {
         </div>
         <div>
           <dt>Position</dt>
-          <dd>{res.heightU > 1 ? `U${p.u}–U${top}` : `U${p.u}`}</dd>
+          <dd>
+            {res.heightU > 1 ? `U${p.u}–U${top}` : `U${p.u}`}
+            {off}
+          </dd>
         </div>
         <div>
           <dt>Depth</dt>
@@ -192,16 +211,16 @@ function Body({ p }: { p: Placement }) {
             <button
               type="button"
               className="btn"
-              onClick={() => report(st().move(p.id, p.u + 1, p.side))}
-              aria-label="Move up one unit"
+              onClick={() => step(1)}
+              aria-label={holeSnap ? 'Move up one hole' : 'Move up one unit'}
             >
               ↑ Up
             </button>
             <button
               type="button"
               className="btn"
-              onClick={() => report(st().move(p.id, p.u - 1, p.side))}
-              aria-label="Move down one unit"
+              onClick={() => step(-1)}
+              aria-label={holeSnap ? 'Move down one hole' : 'Move down one unit'}
             >
               ↓ Down
             </button>
@@ -212,7 +231,7 @@ function Body({ p }: { p: Placement }) {
             full
             label="Side of the rack"
             value={p.side}
-            onChange={(side) => report(st().move(p.id, p.u, side))}
+            onChange={(side) => report(st().move(p.id, p.u, side, p.hole))}
             options={[
               { value: 'front', label: 'Front' },
               { value: 'rear', label: 'Rear' },
@@ -220,6 +239,17 @@ function Body({ p }: { p: Placement }) {
           />
         </Field>
       </div>
+
+      {p.hole && (
+        <p className="note">
+          Mounted between units. The holes in a rail are not evenly spaced, so check that the ears of this
+          device reach two of them.
+        </p>
+      )}
+
+      <Field label="Colour">
+        <ColorField label="Device colour" value={p.color} onChange={(c) => st().setPlacementColor(p.id, c)} />
+      </Field>
 
       {cfg && <ConfigEditor p={p} cfg={cfg} maxCount={res.maxCount ?? 1} />}
 
@@ -302,6 +332,147 @@ function Body({ p }: { p: Placement }) {
   )
 }
 
+const AUTO = 'auto'
+const CABLE_SWATCHES = [
+  '#4f8fd0',
+  '#cfa93a',
+  '#c9ced6',
+  '#22262b',
+  '#2e8b57',
+  '#c0392b',
+  '#d9682a',
+  '#7d4cc2',
+  '#f2f2f0',
+]
+
+function CableBody({ row }: { row: CableRow }) {
+  const units = useStore((s) => s.units)
+  const routing = useStore((s) => s.cableRouting)
+  const st = useStore.getState
+  const c = row.cable
+  const text = (mm: number) => cableLengthText(mm, units)
+  const end = (p: CableRow['to']) => (p === WALL ? 'Wall socket' : `${p.device} · ${p.label}`)
+  const thick = CABLE_DIAMETER[row.kind]
+  return (
+    <div className="inspector__body">
+      <header className="inspector__head">
+        <div>
+          <p className="eyebrow">{CABLE_NAME[row.kind]}</p>
+          <h2>
+            {end(row.from)} <span className="dim">→</span> {end(row.to)}
+          </h2>
+        </div>
+        <button type="button" className="icon-btn" onClick={() => st().selectCable(null)} aria-label="Close">
+          ×
+        </button>
+      </header>
+
+      <dl className="specs mono">
+        <div>
+          <dt>Run</dt>
+          <dd>{text(row.pathMm)}</dd>
+        </div>
+        <div>
+          <dt>Needs</dt>
+          <dd>{text(row.requiredMm)}</dd>
+        </div>
+        <div>
+          <dt>Use</dt>
+          <dd>{row.lengthMm ? text(row.lengthMm) : '—'}</dd>
+        </div>
+      </dl>
+      {row.status === 'too-short' && (
+        <p className="note note--bad">This length cannot reach. It needs {text(row.requiredMm)}.</p>
+      )}
+      {row.status === 'no-stock' && (
+        <p className="note note--bad">Longer than any length these cables are sold in.</p>
+      )}
+
+      <div className="grid-2">
+        <Field label="Length">
+          <Picker
+            label="Cable length"
+            value={c.lengthMm === undefined ? AUTO : String(c.lengthMm)}
+            onChange={(v) => st().updateCable(c.id, { lengthMm: v === AUTO ? undefined : Number(v) })}
+            options={[
+              { value: AUTO, label: row.suggestedMm ? `Auto · ${text(row.suggestedMm)}` : 'Auto' },
+              ...STOCK_LENGTHS[row.kind].map((l) => ({
+                value: String(l),
+                label: text(l),
+                ...(l < row.requiredMm ? { hint: 'too short' } : {}),
+              })),
+            ]}
+          />
+        </Field>
+        <Field label="Thickness">
+          <Picker
+            label="Cable thickness"
+            value={c.diameterMm === undefined ? AUTO : String(c.diameterMm)}
+            onChange={(v) => st().updateCable(c.id, { diameterMm: v === AUTO ? undefined : Number(v) })}
+            options={[
+              { value: AUTO, label: `Usual · ${thick} mm` },
+              ...[3, 4, 5, 6, 7, 8, 10, 12].map((d) => ({ value: String(d), label: `${d} mm` })),
+            ]}
+          />
+        </Field>
+      </div>
+
+      <Field label="Colour">
+        <ColorField
+          label="Cable colour"
+          value={c.color}
+          swatches={CABLE_SWATCHES}
+          onChange={(color) => st().updateCable(c.id, { color })}
+        />
+      </Field>
+
+      <Field label="Route">
+        <Segmented
+          full
+          label="How this cable runs"
+          value={c.route ?? AUTO}
+          onChange={(v) => st().updateCable(c.id, { route: v === AUTO ? undefined : v })}
+          options={[
+            { value: AUTO, label: `Like the rest (${routing === 'post' ? 'post' : 'straight'})` },
+            { value: 'direct', label: 'Straight' },
+            { value: 'post', label: 'Along a post' },
+          ]}
+        />
+      </Field>
+
+      <Switch
+        id="cable-have"
+        label="I already have this cable"
+        checked={row.have}
+        onChange={(have) => st().updateCable(c.id, { have })}
+      />
+
+      <div className="btn-row">
+        <button
+          type="button"
+          className="btn btn--danger"
+          onClick={() => {
+            st().removeCable(c.id)
+            toast('Cable removed', { action: { label: 'Undo', onClick: () => useStore.getState().undo() } })
+          }}
+        >
+          Unplug
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function useSelectedCable(): CableRow | undefined {
+  const rack = useStore((s) => s.rack)
+  const placements = useStore((s) => s.placements)
+  const cables = useStore((s) => s.cables)
+  const routing = useStore((s) => s.cableRouting)
+  const id = useStore((s) => s.selectedCableId)
+  if (!id) return undefined
+  return cableReport(rack, placements, cables, { routing }).rows.find((r) => r.cable.id === id)
+}
+
 function useNarrow() {
   const [narrow, setNarrow] = useState(
     () => typeof matchMedia !== 'undefined' && matchMedia('(max-width: 900px)').matches,
@@ -318,28 +489,29 @@ function useNarrow() {
 export function Inspector() {
   const p = useStore((s) => s.placements.find((x) => x.id === s.selectedId))
   const dragging = useStore((s) => !!s.drag)
+  const cable = useSelectedCable()
   const narrow = useNarrow()
+  const close = () => {
+    useStore.getState().select(null)
+    useStore.getState().selectCable(null)
+  }
   if (narrow) {
     return (
-      <Drawer.Root
-        open={!!p && !dragging}
-        onOpenChange={(o) => !o && useStore.getState().select(null)}
-        modal={false}
-      >
+      <Drawer.Root open={(!!p || !!cable) && !dragging} onOpenChange={(o) => !o && close()} modal={false}>
         <Drawer.Portal>
           <Drawer.Content className="drawer" aria-describedby={undefined}>
             <Drawer.Handle className="drawer__handle" />
-            <Drawer.Title className="sr-only">Selected device</Drawer.Title>
-            {p && <Body p={p} />}
+            <Drawer.Title className="sr-only">Selected {cable ? 'cable' : 'device'}</Drawer.Title>
+            {p ? <Body p={p} /> : cable ? <CableBody row={cable} /> : null}
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>
     )
   }
-  if (!p) return null
+  if (!p && !cable) return null
   return (
-    <aside className="inspector" aria-label="Selected device">
-      <Body p={p} />
+    <aside className="inspector" aria-label={cable && !p ? 'Selected cable' : 'Selected device'}>
+      {p ? <Body p={p} /> : <CableBody row={cable!} />}
     </aside>
   )
 }

@@ -226,3 +226,61 @@ export function Stepper({
     </div>
   )
 }
+
+const SWATCHES = [
+  '#1c1d20',
+  '#3a3d42',
+  '#c9ccd1',
+  '#f2f2f0',
+  '#2f6fb5',
+  '#2e8b57',
+  '#d9a441',
+  '#c0392b',
+  '#7d4cc2',
+]
+
+/** A row of colour swatches with a free choice at the end. `undefined` means "the default colour". */
+export function ColorField({
+  value,
+  onChange,
+  label,
+  swatches = SWATCHES,
+}: {
+  value: string | undefined
+  onChange: (v: string | undefined) => void
+  label: string
+  swatches?: string[]
+}) {
+  return (
+    <div className="swatches" role="group" aria-label={label}>
+      <button
+        type="button"
+        className="swatch swatch--none"
+        aria-pressed={value === undefined}
+        aria-label="Default colour"
+        title="Default colour"
+        onClick={() => onChange(undefined)}
+      />
+      {swatches.map((c) => (
+        <button
+          key={c}
+          type="button"
+          className="swatch"
+          style={{ background: c }}
+          aria-pressed={value?.toLowerCase() === c}
+          aria-label={c}
+          title={c}
+          onClick={() => onChange(c)}
+        />
+      ))}
+      <label className="swatch swatch--custom" title="Any colour">
+        <input
+          type="color"
+          aria-label={`${label}: any colour`}
+          value={value ?? '#888888'}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </label>
+    </div>
+  )
+}

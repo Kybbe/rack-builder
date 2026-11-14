@@ -124,3 +124,11 @@ describe('suggesting a rack size from a wish list', () => {
     expect(plan.usedU).toBe(0)
   })
 })
+
+describe('racks to buy', () => {
+  it('never offers a printed design as a rack to buy', () => {
+    const plan = planRack([{ itemId: 'patch-panel-12-10', qty: 1 }], { standard: '10', headroomPct: 0 })
+    expect(plan.racks.length).toBeGreaterThan(0)
+    expect(plan.racks.some((r) => r.product.printed)).toBe(false)
+  })
+})

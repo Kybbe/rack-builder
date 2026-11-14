@@ -16,6 +16,7 @@ export function ViewToolbar() {
   const preset = useStore((s) => s.view.preset)
   const projection = useStore((s) => s.projection)
   const showDimensions = useStore((s) => s.showDimensions)
+  const holeSnap = useStore((s) => s.holeSnap)
   const set = useStore((s) => s.set)
   const setView = useStore((s) => s.setView)
   return (
@@ -49,6 +50,15 @@ export function ViewToolbar() {
         onClick={() => set({ showDimensions: !showDimensions })}
       >
         Dimensions
+      </Toolbar.Button>
+      <Toolbar.Button
+        className="viewbar__btn"
+        data-state={holeSnap ? 'on' : 'off'}
+        aria-pressed={holeSnap}
+        onClick={() => set({ holeSnap: !holeSnap })}
+        title="Let devices land on any mounting hole (3 per unit) instead of whole units"
+      >
+        Any hole
       </Toolbar.Button>
     </Toolbar.Root>
   )

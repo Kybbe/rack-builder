@@ -15,10 +15,12 @@ import { toast } from 'sonner'
 import { useStore, type ViewPreset } from '../state/store'
 import { report } from '../ui/feedback'
 import { dropTarget, rackGeometry } from '../domain/geometry'
+import { HOLE_SHIFT_MM } from '../domain/placement'
 import { U_MM, formatLength, uToMm } from '../domain/units'
 import type { Rack, UnitSystem } from '../domain/types'
 import { RackFrame } from './RackFrame'
 import { Device } from './Device'
+import { Cables } from './Cables'
 import { MM, bridge, pointOnRack } from './bridge'
 import { SCENE, type SceneTheme } from './sceneTheme'
 
@@ -115,7 +117,9 @@ function Ghost({ rack, theme }: { rack: Rack; theme: SceneTheme }) {
   const sign = ghost.side === 'front' ? 1 : -1
   const reason = ghost.issues[0]?.message
   return (
-    <group position={[0, g.u1Y + (ghost.u - 1) * U_MM + h / 2, z - sign * 28]}>
+    <group
+      position={[0, g.u1Y + (ghost.u - 1) * U_MM + HOLE_SHIFT_MM[ghost.hole ?? 0] + h / 2, z - sign * 28]}
+    >
       <mesh>
         <boxGeometry args={[g.panelW, h, 60]} />
         <meshBasicMaterial color={color} transparent opacity={0.22} depthWrite={false} />
@@ -132,6 +136,7 @@ function Ghost({ rack, theme }: { rack: Rack; theme: SceneTheme }) {
               : ghost.heightU > 1
                 ? `U${ghost.u}–U${ghost.u + ghost.heightU - 1}`
                 : `U${ghost.u}`}
+            {ghost.hole ? ` +${ghost.hole} hole${ghost.hole > 1 ? 's' : ''}` : ''}
           </b>
           {reason && <span>{reason}</span>}
         </div>
@@ -173,7 +178,9 @@ function Scene() {
       const drag = useStore.getState().drag
       if (!drag?.moveId) return
       const pt = pointOnRack(e.clientX, e.clientY, st.rack)
-      st.setGhost(pt ? dropTarget(st.rack, st.placements, drag, pt.yMm, pt.side) : null)
+      st.setGhost(
+        pt ? dropTarget(st.rack, st.placements, drag, pt.yMm, pt.side, { holes: st.holeSnap }) : null,
+      )
     }
     const onUp = () => {
       pending.current = null
@@ -260,6 +267,7 @@ function Scene() {
             }}
           />
         ))}
+        <Cables rack={rack} theme={theme} units={units} />
         <Ghost rack={rack} theme={theme} />
         {showDimensions && <Dimensions rack={rack} theme={theme} units={units} />}
       </group>
@@ -278,7 +286,7 @@ export function Viewport() {
     const st = useStore.getState()
     if (!st.drag) return null
     const pt = pointOnRack(e.clientX, e.clientY, st.rack)
-    return pt ? dropTarget(st.rack, st.placements, st.drag, pt.yMm, pt.side) : null
+    return pt ? dropTarget(st.rack, st.placements, st.drag, pt.yMm, pt.side, { holes: st.holeSnap }) : null
   }
 
   return (
@@ -295,6 +303,7 @@ export function Viewport() {
           !prev ||
           !t ||
           prev.u !== t.u ||
+          prev.hole !== t.hole ||
           prev.ok !== t.ok ||
           prev.side !== t.side ||
           prev.kind !== t.kind ||
@@ -321,7 +330,11 @@ export function Viewport() {
         dpr={[1, 2]}
         gl={{ antialias: true }}
         onPointerMissed={(e) => {
-          if (e.button === 0) useStore.getState().select(null)
+          if (e.button !== 0) return
+          const st = useStore.getState()
+          st.select(null)
+          st.selectCable(null)
+          st.cancelCable()
         }}
       >
         <Scene />

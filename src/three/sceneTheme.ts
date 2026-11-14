@@ -13,6 +13,8 @@ export interface SceneTheme {
   accent: string
   danger: string
   text: string
+  /** Cable colours by kind. The accent and the danger colour stay reserved for selection and problems. */
+  cable: { ethernet: string; sfp: string; power: string }
 }
 
 export const SCENE: Record<Theme, SceneTheme> = {
@@ -28,6 +30,7 @@ export const SCENE: Record<Theme, SceneTheme> = {
     accent: '#ff6a1f',
     danger: '#e5484d',
     text: '#aab1bc',
+    cable: { ethernet: '#4f8fd0', sfp: '#cfa93a', power: '#c9ced6' },
   },
   light: {
     background: '#f4f5f6',
@@ -41,5 +44,6 @@ export const SCENE: Record<Theme, SceneTheme> = {
     accent: '#e2530a',
     danger: '#cd2b31',
     text: '#59616c',
+    cable: { ethernet: '#2f6fb5', sfp: '#a37d12', power: '#33383f' },
   },
 }

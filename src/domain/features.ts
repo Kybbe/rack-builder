@@ -1,4 +1,4 @@
-import type { FrontFeature } from '../domain/types'
+import type { FrontFeature } from './types'
 
 export interface Rect {
   x: number
@@ -6,22 +6,26 @@ export interface Rect {
   w: number
   h: number
   tone: 'hole' | 'bay' | 'screen' | 'led' | 'sfp' | 'handle'
+  /** Index of the feature this rectangle was drawn for, and what that feature is. */
+  f: number
+  kind: FrontFeature['type']
 }
 
 /** Turns the feature list of a device into rectangles on its face. Origin: centre of the face, in mm. */
 export function featureRects(features: FrontFeature[], faceW: number, faceH: number): Rect[] {
-  const out: Rect[] = []
+  const all: Rect[] = []
   const left = -faceW / 2
-  for (const f of features) {
+  features.forEach((f, index) => {
+    const out = { push: (r: Omit<Rect, 'f' | 'kind'>) => all.push({ ...r, f: index, kind: f.type }) }
     if (f.type === 'handles') {
       for (const s of [-1, 1])
         out.push({ x: s * (faceW / 2 + 9), y: 0, w: 5, h: faceH * 0.6, tone: 'handle' })
-      continue
+      return
     }
     const x0 = left + f.x * faceW
     if (f.type === 'leds') {
       for (let i = 0; i < f.count; i++) out.push({ x: x0 + i * 7, y: 0, w: 3, h: 3, tone: 'led' })
-      continue
+      return
     }
     const w = f.w * faceW
     const cx = x0 + w / 2
@@ -79,6 +83,6 @@ export function featureRects(features: FrontFeature[], faceW: number, faceH: num
         out.push({ x: cx, y: 0, w, h: faceH * 0.42, tone: 'hole' })
         break
     }
-  }
-  return out
+  })
+  return all
 }
