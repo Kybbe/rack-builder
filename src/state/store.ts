@@ -55,6 +55,13 @@ const refused = (message: string, code: Issue['code'] = 'overlap'): CheckResult 
   warnings: [],
 })
 
+/**
+ * Whether choosing the rack should still lead the equipment list. A rack with equipment in it has been chosen,
+ * whatever the flag says (racks saved before the flag existed).
+ */
+export const needsRackSetup = (s: Pick<State, 'rackChosen' | 'placements'>) =>
+  !s.rackChosen && s.placements.length === 0
+
 export interface State {
   rack: Rack
   placements: Placement[]
@@ -78,6 +85,8 @@ export interface State {
   cableRouting: CableRouting
   /** Lets devices land on any mounting hole instead of whole units. */
   holeSnap: boolean
+  /** The visitor has settled on a rack, so choosing one no longer sits at the top of the list. */
+  rackChosen: boolean
   // not saved
   /** A copied device, pasted with paste(). */
   clipboard: Placement | null
@@ -153,6 +162,7 @@ export interface State {
         | 'fastening'
         | 'cableRouting'
         | 'holeSnap'
+        | 'rackChosen'
         | 'paletteOpen'
       >
     >,
@@ -171,7 +181,12 @@ export const useStore = create<State>()(
       const commit = (r: CheckResult & { placements: Placement[] }): CheckResult => {
         if (r.ok && r.placements !== get().placements) {
           const { rack, cables } = get()
-          set({ placements: r.placements, cables: pruneCables(rack, r.placements, cables), past: snapshot() })
+          set({
+            placements: r.placements,
+            cables: pruneCables(rack, r.placements, cables),
+            past: snapshot(),
+            ...(r.placements.length > 0 ? { rackChosen: true } : {}),
+          })
         }
         return { ok: r.ok, errors: r.errors, warnings: r.warnings }
       }
@@ -196,6 +211,7 @@ export const useStore = create<State>()(
         fastening: 'inserts',
         cableRouting: 'direct',
         holeSnap: false,
+        rackChosen: false,
         clipboard: null,
         paletteOpen: false,
         selectedId: null,
@@ -471,6 +487,7 @@ export const useStore = create<State>()(
             rack: { ...DEFAULT_RACK },
             placements: [],
             cables: [],
+            rackChosen: false,
             past: snapshot(),
             selectedId: null,
             pendingPort: null,
@@ -486,6 +503,7 @@ export const useStore = create<State>()(
             rack: layout.rack,
             placements: layout.placements,
             cables: layout.cables ?? [],
+            rackChosen: true,
             past: snapshot(),
             selectedId: null,
             pendingPort: null,
@@ -560,6 +578,7 @@ export const useStore = create<State>()(
         fastening: s.fastening,
         cableRouting: s.cableRouting,
         holeSnap: s.holeSnap,
+        rackChosen: s.rackChosen,
       }),
     },
   ),

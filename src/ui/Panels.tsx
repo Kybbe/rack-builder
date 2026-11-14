@@ -1,6 +1,6 @@
 import * as Tabs from '@radix-ui/react-tabs'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
-import { RackSettings } from './RackSettings'
+import { RackSetup } from './RackSettings'
 import { CatalogPanel } from './CatalogPanel'
 import { PlannerPanel } from './PlannerPanel'
 import { CablesPanel } from './CablesPanel'
@@ -41,7 +41,7 @@ export function Panels() {
   return (
     <>
       <Tabs.Content value="build" className="side__tab">
-        <RackSettings />
+        <RackSetup />
         <CatalogPanel mode="build" />
       </Tabs.Content>
       <Tabs.Content value="cables" className="side__tab">

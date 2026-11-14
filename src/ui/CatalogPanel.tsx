@@ -10,25 +10,59 @@ import { Len, Tip, ULabel } from './primitives'
 import { report } from './feedback'
 import { ItemPreview } from './ItemPreview'
 
+/** Rack heights fall into five colour steps: 1U, 2U, 3U, 4U and everything taller. */
+export const uStep = (u: number) => Math.min(5, Math.max(1, Math.round(u)))
+
+/** What a card says about size. Gear with rack ears has its width and height set by the rack, so only depth is told. */
 function Meta({ item }: { item: CatalogItem }) {
+  const load = (
+    <>
+      <span>{item.weightKg} kg</span>
+      {item.powerW > 0 && <span>{item.powerW} W max</span>}
+    </>
+  )
+  if (item.configurable)
+    return (
+      <span className="card__meta mono">
+        <span>size by choice</span>
+        <span>{item.note}</span>
+      </span>
+    )
+  if (item.mount === 'rail')
+    return (
+      <span className="card__meta mono">
+        <span>{item.standard === 'both' ? '10" / 19"' : `${item.standard}"`}</span>
+        {item.depthMm > 5 && (
+          <span>
+            <Len mm={item.depthMm} digits={0} /> deep
+          </span>
+        )}
+        {load}
+      </span>
+    )
   return (
     <span className="card__meta mono">
-      {item.mount === 'rail' ? (
-        <>
-          {item.configurable ? <span>size by choice</span> : <ULabel u={item.heightU ?? 1} />}
-          <span>{item.standard === 'both' ? '10" / 19"' : `${item.standard}"`}</span>
-          {!item.configurable && item.depthMm > 5 && <Len mm={item.depthMm} digits={0} />}
-        </>
-      ) : (
-        <>
-          <span>on shelf</span>
-          <span>
-            <Len mm={item.widthMm} digits={0} /> × <Len mm={item.heightMm} digits={0} />
-          </span>
-        </>
-      )}
+      <span>
+        <Len mm={item.widthMm} digits={0} /> × <Len mm={item.heightMm} digits={0} /> ×{' '}
+        <Len mm={item.depthMm} digits={0} />
+      </span>
+      {load}
     </span>
   )
+}
+
+/** The corner of a card: how many units it takes, or that it needs a shelf to stand on. */
+function Corner({ item }: { item: CatalogItem }) {
+  if (item.mount === 'shelf')
+    return (
+      <Tip content="A loose device: it stands on a shelf, not on the rails">
+        <span className="tag tag--shelf card__corner" tabIndex={0}>
+          shelf
+        </span>
+      </Tip>
+    )
+  if (item.configurable || !item.heightU) return null
+  return <ULabel u={item.heightU} className="tag card__corner" step={uStep(item.heightU)} />
 }
 
 function Card({ item, mode }: { item: CatalogItem; mode: 'build' | 'plan' }) {
@@ -68,6 +102,7 @@ function Card({ item, mode }: { item: CatalogItem; mode: 'build' | 'plan' }) {
     >
       <span className="card__swatch" style={{ background: item.color ?? '#2a2c30' }} aria-hidden />
       <span className="card__body">
+        <Corner item={item} />
         <span className="card__name">
           {item.name}
           {hasModel(item.id) && (
@@ -88,17 +123,6 @@ function Card({ item, mode }: { item: CatalogItem; mode: 'build' | 'plan' }) {
         ) : (
           <Meta item={item} />
         )}
-        <span className="card__extra mono">
-          {item.configurable ? (
-            item.note
-          ) : (
-            <>
-              <Len mm={item.widthMm} digits={0} /> × <Len mm={item.heightMm} digits={0} /> ×{' '}
-              <Len mm={item.depthMm} digits={0} /> · {item.weightKg} kg
-              {item.powerW > 0 ? ` · ${item.powerW} W max` : ''}
-            </>
-          )}
-        </span>
         {previews && (
           <span className="card__pv">
             <ItemPreview item={item} standard={std} />

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useStore } from '../state/store'
 import { copyShareLink, exportLayout, importLayoutFile } from './io'
 import { Segmented } from './primitives'
+import { RackButton } from './RackSettings'
 import models from '../catalog/models.json'
 
 interface ModelCredit {
@@ -53,6 +54,7 @@ export function TopBar({ narrow = false }: { narrow?: boolean }) {
         </svg>
         Rack Builder
       </h1>
+      <RackButton narrow={narrow} />
       {!narrow && <TabList />}
       <div className="topbar__spacer" />
       {!narrow && (

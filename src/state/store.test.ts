@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_RACK, useStore } from './store'
+import { DEFAULT_RACK, needsRackSetup, useStore } from './store'
 
 const s = () => useStore.getState()
 
 beforeEach(() => {
   localStorage.clear()
-  useStore.setState({ rack: { ...DEFAULT_RACK }, placements: [], cables: [], past: [], selectedId: null })
+  useStore.setState({
+    rack: { ...DEFAULT_RACK },
+    placements: [],
+    cables: [],
+    past: [],
+    selectedId: null,
+    rackChosen: false,
+  })
 })
 
 describe('editing the rack in the app', () => {
@@ -147,6 +154,47 @@ describe('editing the rack in the app', () => {
     const saved = JSON.parse(localStorage.getItem('rack-builder')!)
     expect(saved.state.placements).toHaveLength(1)
     expect(saved.state.selectedId).toBeUndefined()
+  })
+})
+
+describe('asking a new visitor to choose a rack', () => {
+  it('asks until the visitor says the rack is chosen', () => {
+    expect(needsRackSetup(s())).toBe(true)
+    s().setRack({ heightU: 12 })
+    expect(needsRackSetup(s())).toBe(true)
+    s().set({ rackChosen: true })
+    expect(needsRackSetup(s())).toBe(false)
+  })
+
+  it('takes the first device as the answer, and does not ask again when the rack is emptied', () => {
+    expect(s().addAuto('patch-panel-12-10').ok).toBe(true)
+    expect(needsRackSetup(s())).toBe(false)
+    s().clear()
+    expect(needsRackSetup(s())).toBe(false)
+  })
+
+  it('does not ask about a rack that was saved with equipment before this question existed', () => {
+    s().add('patch-panel-12-10', 8, 'front')
+    useStore.setState({ rackChosen: false })
+    expect(needsRackSetup(s())).toBe(false)
+  })
+
+  it('does not ask about a shared or imported rack', () => {
+    s().load({ rack: { ...DEFAULT_RACK, heightU: 12 }, placements: [], cables: [] })
+    expect(needsRackSetup(s())).toBe(false)
+  })
+
+  it('asks again after resetting everything, and undoing the reset does not', () => {
+    s().addAuto('patch-panel-12-10')
+    s().reset()
+    expect(needsRackSetup(s())).toBe(true)
+    s().undo()
+    expect(needsRackSetup(s())).toBe(false)
+  })
+
+  it('remembers the answer over a reload', () => {
+    s().set({ rackChosen: true })
+    expect(JSON.parse(localStorage.getItem('rack-builder')!).state.rackChosen).toBe(true)
   })
 })
 

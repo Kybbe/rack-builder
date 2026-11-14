@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { useStore } from '../state/store'
+import * as Popover from '@radix-ui/react-popover'
+import { needsRackSetup, useStore } from '../state/store'
 import { RACK_PRODUCTS } from '../catalog'
-import { STANDARD_HEIGHTS, formatU } from '../domain/units'
+import { STANDARD_HEIGHTS, formatLength, formatU } from '../domain/units'
 import type { Rack } from '../domain/types'
-import { ColorField, Field, Len, Picker, Segmented, Slider, Switch, ULabel } from './primitives'
+import { ColorField, Field, Len, Picker, Segmented, Slider, Switch } from './primitives'
 
 const CUSTOM = '__custom'
 
-export function RackSettings() {
+/** Every setting of the rack itself. `id` keeps form ids apart when two copies are on screen. */
+function RackFields({ id }: { id: string }) {
   const rack = useStore((s) => s.rack)
   const units = useStore((s) => s.units)
   const setRack = useStore((s) => s.setRack)
@@ -29,13 +31,7 @@ export function RackSettings() {
   const depthRange = rack.standard === '10' ? { min: 100, max: 450 } : { min: 250, max: 1200 }
 
   return (
-    <section className="panel-section" aria-label="Rack">
-      <header className="panel-section__head">
-        <h2>Rack</h2>
-        <span className="mono dim">
-          {rack.standard}" · <ULabel u={rack.heightU} /> · <Len mm={rack.depthMm} digits={0} />
-        </span>
-      </header>
+    <>
       <div className="grid-2">
         <Field label="Width">
           <Segmented
@@ -100,7 +96,7 @@ export function RackSettings() {
         </Field>
         <Field label="Base">
           <Switch
-            id="casters"
+            id={`${id}-casters`}
             label="Wheels"
             checked={rack.casters}
             onChange={(casters) => {
@@ -141,6 +137,69 @@ export function RackSettings() {
           . {product.note}
         </p>
       )}
+    </>
+  )
+}
+
+/** One line that says what the rack is, for places that only have room for that. */
+export function RackSummary({ depth = true }: { depth?: boolean }) {
+  const rack = useStore((s) => s.rack)
+  const units = useStore((s) => s.units)
+  // Plain text, not <Len>: this sits inside a button, where a second thing to focus and hover has no place.
+  const deep = units === 'mm' ? `${Math.round(rack.depthMm)} mm` : formatLength(rack.depthMm, units)
+  return (
+    <span className="mono">
+      {rack.standard}" · {rack.heightU}U{depth && ` · ${deep}`}
+    </span>
+  )
+}
+
+/** Choosing the rack as the first step, at the top of the list until it is settled. */
+export function RackSetup() {
+  const needed = useStore(needsRackSetup)
+  if (!needed) return null
+  return (
+    <section className="panel-section" aria-label="Choose your rack">
+      <header className="panel-section__head">
+        <h2>Choose your rack</h2>
+        <RackSummary />
+      </header>
+      <RackFields id="setup" />
+      <div className="btn-row">
+        <span className="note">You can change it later from the top bar.</span>
+        <button
+          type="button"
+          className="btn btn--primary"
+          onClick={() => useStore.getState().set({ rackChosen: true })}
+        >
+          Use this rack
+        </button>
+      </div>
     </section>
+  )
+}
+
+/** The rack in the top bar: says what it is, and opens the same settings. */
+export function RackButton({ narrow = false }: { narrow?: boolean }) {
+  const setup = useStore(needsRackSetup)
+  return (
+    <Popover.Root onOpenChange={(open) => !open && setup && useStore.getState().set({ rackChosen: true })}>
+      <Popover.Trigger className="btn btn--ghost rack-btn" aria-label="Rack, change size and type">
+        <RackSummary depth={!narrow} />
+        <span aria-hidden> ▾</span>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          className="popover rack-pop"
+          align="start"
+          sideOffset={6}
+          collisionPadding={8}
+          aria-label="Rack"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <RackFields id="bar" />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }

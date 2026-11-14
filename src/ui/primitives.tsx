@@ -47,11 +47,11 @@ export function Tip({
 }
 
 /** "2U" that explains itself in mm and inches when hovered or focused. */
-export function ULabel({ u, className }: { u: number; className?: string }) {
+export function ULabel({ u, className, step }: { u: number; className?: string; step?: number }) {
   const units = useStore((s) => s.units)
   return (
     <Tip content={formatU(u, units)}>
-      <abbr className={`u ${className ?? ''}`} tabIndex={0} aria-label={formatU(u, units)}>
+      <abbr className={`u ${className ?? ''}`} data-u={step} tabIndex={0} aria-label={formatU(u, units)}>
         {u}U
       </abbr>
     </Tip>
